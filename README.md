@@ -1,10 +1,10 @@
-🚀 MSME ONE – AI Support Assistant
+## 🚀 MSME ONE – AI Support Assistant
 
 An intelligent multilingual chatbot system built using Python Flask, Ollama Local LLMs, React Frontend, and Whisper speech-to-text.
 Supports multiple AI models (LLaMA / Phi / Mistral) and PDF-based training per model.
 
-📌 Features
-🧠 AI Chat (Local Offline)
+## 📌 Features
+## 🧠 AI Chat (Local Offline)
 
 Uses Ollama to run LLMs locally
 
@@ -38,7 +38,7 @@ Saves corpus per model
 
 Used for contextual replies
 
-🔐 Admin Panel
+## 🔐 Admin Panel
 
 Simple login (admin/msme@123)
 
