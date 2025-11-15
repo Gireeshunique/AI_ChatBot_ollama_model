@@ -1,0 +1,1636 @@
+/* ==========================================================
+   SOFT GRADIENT MODERN UI — Premium SaaS Style
+   Clean, Light, Gradient-Based (matching your screenshot)
+========================================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Inter", "Poppins", sans-serif;
+  background: linear-gradient(140deg, #f5f7ff, #ecebfd, #f8f9ff);
+  color: #2b2b38;
+  min-height: 100vh;
+}
+
+/* ==========================================================
+   NAVBAR — Soft Gradient Bar With Subtle Shadow
+========================================================== */
+
+.navbar {
+  height: 65px;
+  background: linear-gradient(120deg, #ffffffaa, #f7f8ffdd);
+  backdrop-filter: blur(10px);
+  border-bottom: 0px solid rgba(180, 180, 210, 0.25);
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 0px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+
+  box-shadow: 0 6px 12px rgba(180, 180, 210, 0.25);
+}
+
+.navbar-title {
+  font-size: 23px;
+  font-weight: 600;
+  background: linear-gradient(90deg, #6d5ffc, #927cff);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.navbar-links {
+  display: flex;
+  gap: 26px;
+}
+
+.navbar-links a {
+  text-decoration: none;
+  color: #4c4c5c;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 20px 10px;
+  border-radius: 8px;
+  transition: 0.15s ease;
+}
+
+.navbar-links a:hover {
+  background: rgba(140, 120, 255, 0.12);
+  color: #6d5ffc;
+}
+
+/* Button */
+.lang-toggle {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(150, 140, 255, 0.25);
+  color: #6d5ffc;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.lang-toggle:hover {
+  background: rgba(150, 140, 255, 0.1);
+}
+
+/* ==========================================================
+   CHAT WINDOW — Soft Card Style Bubbles
+========================================================== */
+
+.chat-container {
+  height: calc(100vh - 65px);
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-window {
+  flex: 1;
+  padding: 35px 20%;
+  overflow-y: auto;
+}
+
+/* Chat message row */
+.chat-message {
+  margin: 16px 0;
+  display: flex;
+}
+
+/* Base bubble */
+.chat-bubble {
+  max-width: 75%;
+  padding: 14px 18px;
+  font-size: 15px;
+  border-radius: 16px;
+  line-height: 1.45;
+
+  background: #ffffffee;
+  border: 1px solid rgba(180, 180, 210, 0.25);
+  backdrop-filter: blur(8px);
+
+  box-shadow: 0 4px 10px rgba(160, 160, 200, 0.25);
+  animation: fadeIn 0.25s ease;
+}
+
+/* Bot bubble */
+.chat-message.bot .chat-bubble {
+  background: #ffffffee;
+}
+
+/* User bubble (soft gradient) */
+.chat-message.user {
+  justify-content: flex-end;
+}
+
+.chat-message.user .chat-bubble {
+  background: linear-gradient(135deg, #7f75ff, #9583ff);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 14px rgba(150, 140, 255, 0.35);
+}
+
+/* Fade-in animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================
+   INPUT BAR — Light, Clean, Modern
+========================================================== */
+
+.chat-input {
+  background: #ffffffdd;
+  backdrop-filter: blur(8px);
+  padding: 16px 20%;
+  display: flex;
+  gap: 12px;
+  border-top: 1px solid rgba(180, 180, 210, 0.22);
+
+  box-shadow: 0 -2px 10px rgba(160, 160, 200, 0.15);
+}
+
+/* Input */
+.chat-input input {
+  flex: 1;
+  height: 48px;
+  border-radius: 14px;
+
+  background: #fafaff;
+  border: 1px solid #d7d7eb;
+
+  padding: 0 14px;
+  font-size: 15px;
+}
+
+.chat-input input:focus {
+  outline: none;
+  border-color: #7a6cff;
+  box-shadow: 0 0 0 2px rgba(120, 110, 255, 0.25);
+}
+
+/* Buttons */
+.chat-buttons button {
+  width: 48px;
+  height: 48px;
+
+  border-radius: 14px;
+  border: 1px solid #d2d2e6;
+
+  background: #7a6cff;
+  cursor: pointer;
+  font-size: 18px;
+
+  transition: 0.15s;
+}
+
+.chat-buttons button:hover {
+  background: #f3f0ff;
+}
+
+/* Send button (gradient) */
+.send-button {
+  background: linear-gradient(135deg, #8578ff, #9c88ff);
+  color: white;
+  border: none;
+}
+
+/* Mic active */
+.mic-button.recording {
+  background: #e45353;
+  color: white;
+}
+
+/* ==========================================================
+   ADMIN DASHBOARD — Improved Premium SaaS Look
+========================================================== */
+
+.admin-dashboard {
+  padding: 50px 22px;
+  background: linear-gradient(140deg, #f5f7ff, #ecebfd, #f8f9ff);
+  min-height: 100vh;
+}
+
+/* Main container */
+.admin-content {
+  max-width: 850px;
+  margin: auto;
+  padding-top: 10px;
+}
+
+.admin-content h2 {
+  font-size: 32px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #6d5ffc, #a38dff);
+  -webkit-background-clip: text;
+  color: transparent;
+  margin-bottom: 5px;
+}
+
+.admin-subtext {
+  font-size: 15px;
+  color: #65657a;
+  margin-bottom: 25px;
+}
+
+/* ==========================================================
+   CARD STYLE — More Soft, Light, Premium
+========================================================== */
+
+.upload-card,
+.train-info-box {
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 22px;
+  padding: 32px;
+
+  border: 1px solid rgba(200, 200, 230, 0.25);
+  backdrop-filter: blur(12px);
+
+  box-shadow:
+    0 10px 28px rgba(175, 175, 215, 0.25),
+    0 1px 3px rgba(150, 150, 200, 0.15);
+
+  transition: 0.25s cubic-bezier(0.15, 0.85, 0.35, 1);
+}
+
+.upload-card:hover,
+.train-info-box:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 14px 34px rgba(160, 150, 255, 0.22),
+    0 3px 6px rgba(150, 150, 200, 0.18);
+}
+
+/* Card titles */
+.upload-card h3,
+.train-info-box h3 {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #4d4d70;
+}
+
+/* ==========================================================
+   File input & upload area — Modern box
+========================================================== */
+
+.upload-card input[type="file"] {
+  display: none;
+}
+
+.file-drop-box {
+  text-align: center;
+  padding: 36px 20px;
+  border: 2px dashed rgba(150, 140, 255, 0.35);
+  border-radius: 16px;
+  transition: 0.2s ease;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.file-drop-box:hover {
+  background: rgba(140, 120, 255, 0.08);
+  border-color: #8f7bff;
+  transform: scale(1.01);
+}
+
+.file-drop-box svg {
+  opacity: 0.6;
+  margin-bottom: 10px;
+}
+
+/* Selected file label */
+.selected-file-text {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #333;
+}
+
+/* ==========================================================
+   Buttons — Better gradients, smoother UI
+========================================================== */
+
+
+/* ==========================================================
+   Training Status Box — Cleaner modern look
+========================================================== */
+
+.train-info-box {
+  margin-top: 30px;
+}
+
+.train-info-box ul {
+  margin-top: 15px;
+  padding-left: 20px;
+}
+
+.train-info-box li {
+  margin-bottom: 6px;
+  color: #505060;
+}
+
+/* Training progress animation */
+.training-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 14px;
+  background: rgba(150, 140, 255, 0.1);
+  border: 1px solid rgba(150, 140, 255, 0.25);
+}
+
+.training-progress svg {
+  animation: rotate 1.2s linear infinite;
+  color: #6d5ffc;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================
+   MESSAGE (success/error) Styling
+========================================================== */
+
+.admin-message {
+  margin-top: 20px;
+  font-size: 16px;
+  padding: 12px 18px;
+
+  background: linear-gradient(135deg, #e8e6ff, #f3f0ff);
+  border-radius: 12px;
+
+  border-left: 4px solid #7e74ff;
+  color: #4c4470;
+
+  box-shadow: 0 4px 14px rgba(170, 170, 210, 0.25);
+}
+/* ==========================================================
+   ADMIN LOGIN PAGE — Premium Soft Gradient SaaS Style
+========================================================== */
+
+/* Full page background */
+.login-container {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background: linear-gradient(140deg, #f5f7ff, #ecebfd, #f8f9ff);
+  font-family: "Inter", "Poppins", sans-serif;
+
+  padding: 20px;
+}
+
+/* Login card */
+.login-card {
+  width: 380px;
+  padding: 40px 32px;
+  border-radius: 22px;
+
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+
+  border: 1px solid rgba(200, 200, 230, 0.25);
+
+  box-shadow:
+    0 10px 28px rgba(175, 175, 215, 0.25),
+    0 1px 4px rgba(150, 150, 200, 0.15);
+
+  text-align: center;
+
+  transition: 0.25s;
+}
+
+.login-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 14px 34px rgba(140, 120, 255, 0.22),
+    0 4px 8px rgba(150, 150, 200, 0.18);
+}
+
+/* Header */
+.login-header h2 {
+  font-size: 26px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #6d5ffc, #a38dff);
+  -webkit-background-clip: text;
+  color: transparent;
+  margin-bottom: 8px;
+}
+
+.login-header p {
+  font-size: 14px;
+  color: #66657a;
+  margin-bottom: 28px;
+}
+
+/* Inputs */
+.login-inputs input {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+
+  margin-bottom: 14px;
+
+  background: #fafaff;
+  border: 1px solid #d7d7eb;
+
+  font-size: 15px;
+  color: #333;
+
+  transition: 0.2s ease;
+}
+
+.login-inputs input:focus {
+  outline: none;
+  border-color: #826bff;
+  box-shadow: 0 0 0 3px rgba(140, 120, 255, 0.25);
+}
+
+/* Login Button */
+.login-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+
+  background: linear-gradient(135deg, #786dff, #a58dff);
+  color: white;
+
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+
+  box-shadow: 0 6px 18px rgba(150, 135, 255, 0.35);
+  transition: 0.22s ease;
+}
+
+.login-btn:hover {
+  background: linear-gradient(135deg, #685cff, #947aff);
+  transform: translateY(-2px);
+}
+
+/* Back Button */
+.back-btn {
+  margin-top: 12px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #6d5ffc;
+  border: 1px solid rgba(150, 140, 255, 0.25);
+
+  cursor: pointer;
+  font-weight: 500;
+  transition: 0.2s ease;
+}
+
+.back-btn:hover {
+  background: rgba(150, 140, 255, 0.12);
+}
+
+/* Footer */
+.login-footer {
+  margin-top: 18px;
+  font-size: 13px;
+  color: #777;
+}
+
+/* Error message */
+.error-text {
+  margin-top: 12px;
+  padding: 10px 16px;
+
+  background: rgba(255, 90, 90, 0.12);
+  border-left: 4px solid #ff5252;
+  border-radius: 10px;
+
+  font-size: 14px;
+  color: #b12020;
+
+  box-shadow: 0 2px 6px rgba(255, 0, 0, 0.12);
+}
+
+
+
+/* Section Title inside model card */
+.active-title {
+  margin-top: 25px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #dbe1ff;
+  opacity: 0.9;
+}
+
+/* Model card spacing */
+.admin-card {
+  margin-bottom: 40px;
+}
+
+/* ============================================
+   GLOBAL PAGE BACKGROUND
+============================================ */
+.admin-page {
+  min-height: 100vh;
+  background: linear-gradient(140deg, #f5f7ff, #ecebfd, #f8f9ff);
+  font-family: "Inter", "Poppins", sans-serif;
+  color: #2b2b38;
+}
+
+/* ============================================
+   NAVBAR
+============================================ */
+.admin-navbar {
+  background: linear-gradient(120deg, #ffffffaa, #f7f8ffdd);
+  backdrop-filter: blur(12px);
+  padding: 14px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(180, 180, 210, 0.25);
+  box-shadow: 0 4px 12px rgba(180, 180, 210, 0.25);
+}
+
+.brand-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-icon {
+  background: linear-gradient(135deg, #8f7bff, #a38dff);
+  padding: 12px;
+  font-size: 20px;
+  border-radius: 14px;
+  color: white;
+}
+
+.brand-text h3 {
+  font-weight: 600;
+  margin: 0;
+  font-size: 18px;
+}
+
+.brand-text p {
+  font-size: 12px;
+  opacity: 0.6;
+  margin: 0;
+}
+
+.back-chat-btn {
+  background: linear-gradient(135deg, #786dff, #a58dff);
+  border: none;
+  color: white;
+  padding: 10px 18px;
+  font-size: 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+  box-shadow: 0 6px 18px rgba(120, 110, 255, 0.3);
+}
+
+.back-chat-btn:hover {
+  transform: translateY(-2px);
+  opacity: 0.9;
+}
+
+/* ============================================
+   MAIN CONTENT
+============================================ */
+.admin-main {
+  padding: 40px 22%;
+}
+
+.admin-title {
+  font-size: 32px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #6c5ffc, #a38dff);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.admin-subtitle {
+  margin-bottom: 30px;
+  color: #6b6b7a;
+}
+
+/* ============================================
+   MODEL CARD (GEMINI / GPT / CLAUDE)
+============================================ */
+.admin-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  padding: 30px;
+  margin-bottom: 40px;
+
+  border: 1px solid rgba(200, 200, 230, 0.25);
+  backdrop-filter: blur(10px);
+
+  box-shadow:
+    0 12px 26px rgba(200, 200, 230, 0.3),
+    0 2px 4px rgba(150, 150, 200, 0.15);
+
+  transition: 0.3s ease;
+}
+
+.admin-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 16px 36px rgba(180, 170, 255, 0.32),
+    0 3px 6px rgba(150, 150, 200, 0.18);
+}
+
+.card-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  color: #4d4d70;
+}
+
+/* ============================================
+   FILE INPUT
+============================================ */
+input[type="file"] {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid #d7d7eb;
+  cursor: pointer;
+  background: #ffffff;
+}
+
+/* ============================================
+   TRAINING OPTIONS
+============================================ */
+.training-options {
+  display: flex;
+  gap: 25px;
+  margin: 18px 0;
+}
+
+.training-options label {
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* ============================================
+   PRIMARY TRAIN BUTTON
+============================================ */
+.upload-train-btn {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+
+  background: linear-gradient(135deg, #7d72ff, #a18aff);
+  box-shadow: 0 6px 18px rgba(150, 135, 255, 0.32);
+
+  transition: 0.25s ease;
+}
+
+.upload-train-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-2px);
+}
+
+.upload-train-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   STATUS MESSAGE
+============================================ */
+.status-msg {
+  margin-top: 12px;
+  padding: 10px;
+  background: #f0edff;
+  border-left: 4px solid #7e74ff;
+  border-radius: 8px;
+  color: #4c4470;
+
+  font-size: 14px;
+}
+
+/* ============================================
+   ACTIVE VERSION BOX
+============================================ */
+.active-title {
+  margin-top: 28px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #4d4d70;
+}
+
+.no-version {
+  opacity: 0.6;
+  margin-top: 6px;
+}
+
+.admin-card ul {
+  margin-top: 10px;
+  padding-left: 20px;
+}
+
+.admin-card li {
+  margin-bottom: 6px;
+  color: #505060;
+}
+
+/* ============================================
+   RESPONSIVE FIX
+============================================ */
+@media (max-width: 1100px) {
+  .admin-main {
+    padding: 40px 10%;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-main {
+    padding: 25px 20px;
+  }
+}
+.logo-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-circle {
+  width: 45px;
+  height: 45px;
+  border-radius: 14px;
+
+  background: linear-gradient(135deg, #7d6cff, #a48aff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 22px;
+  color: white;
+
+  box-shadow: 0 4px 18px rgba(140, 120, 255, 0.45);
+}
+
+.logo-title {
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #6c5ffc, #927cff);
+  -webkit-background-clip: text;
+  color: transparent;
+  letter-spacing: -0.2px;
+}
+
+.logo-sub {
+  font-size: 12px;
+  margin-top: -2px;
+  color: #6e6e84;
+  letter-spacing: 0.5px;
+}
+.delete-btn {
+  margin-top: 14px;
+  padding: 10px 16px;
+  background: #ff5c5c;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  width: 180px;
+  box-shadow: 0 3px 12px rgba(255, 80, 80, 0.35);
+}
+
+.delete-btn:hover {
+  background: #e64545;
+}
+
+/* FOOTER */
+.admin-footer {
+  text-align: center;
+  margin-top: 40px;
+  opacity: 0.6;
+  font-size: 14px;
+  padding-bottom: 20px;
+}
+/* ==========================================================
+   GLOBAL DEFAULTS — CLEAN, SOFT, PREMIUM UI
+========================================================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Inter", "Poppins", sans-serif;
+  background: linear-gradient(140deg, #f5f7ff, #ecebfd, #f8f9ff);
+  color: #2b2b38;
+  min-height: 100vh;
+}
+
+/* ==========================================================
+   NAVBAR — Soft Glass, Rounded, Premium
+========================================================== */
+.admin-navbar {
+  height: 70px;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(180, 180, 210, 0.25);
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 34px;
+
+  box-shadow: 0 6px 18px rgba(180, 180, 210, 0.25);
+  position: sticky;
+  top: 0;
+  z-index: 99;
+}
+
+/* Logo Block */
+.logo-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.logo-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  font-size: 22px;
+  color: #fff;
+
+  background: linear-gradient(135deg, #7d6cff, #a48aff);
+  box-shadow: 0 4px 18px rgba(140, 120, 255, 0.45);
+}
+
+.logo-title {
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #6c5ffc, #927cff);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.logo-sub {
+  font-size: 12px;
+  margin-top: -4px;
+  color: #6f6f8c;
+}
+
+/* Back Button */
+.back-chat-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  border-radius: 14px;
+
+  border: none;
+  cursor: pointer;
+  color: #fff;
+
+  background: linear-gradient(135deg, #786dff, #a58dff);
+  box-shadow: 0 6px 18px rgba(120, 110, 255, 0.32);
+
+  transition: 0.22s ease;
+}
+
+.back-chat-btn:hover {
+  transform: translateY(-2px);
+  opacity: 0.92;
+}
+/* ==========================================================
+   NAVBAR ICONS — Soft Glass Premium Buttons
+========================================================== */
+
+.nav-icons {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+/* Base Icon Style */
+.nav-icon,
+.bell-icon,
+.login-icon {
+  font-size: 26px;
+  cursor: pointer;
+  padding: 8px 9px;
+  border-radius: 14px;
+  transition: 0.25s ease;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(150, 150, 200, 0.25);
+  box-shadow: 0 4px 10px rgba(150, 150, 200, 0.25);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hover animation */
+.nav-icon:hover,
+.bell-icon:hover,
+.login-icon:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 14px rgba(150, 140, 255, 0.35);
+  opacity: 0.9;
+}
+
+/* Bell Icon — Soft Purple Highlight */
+.bell-icon {
+  color: #7d6cff;
+  background: rgba(125, 108, 255, 0.15);
+  border-color: rgba(125, 108, 255, 0.25);
+}
+
+.bell-icon:hover {
+  background: rgba(125, 108, 255, 0.25);
+  color: #6d5ffc;
+}
+
+/* Login Icon — Gradient Text Style */
+.login-icon {
+  font-size: 28px;
+
+  background-image: linear-gradient(135deg, #7d6cff, #a48aff);
+  -webkit-background-clip: text;
+  color: transparent;
+
+  padding: 8px 12px;
+}
+
+.login-icon:hover {
+  opacity: 0.85;
+  transform: translateY(-3px);
+}
+
+
+/* ==========================================================
+   MAIN WRAPPER
+========================================================== */
+.admin-main {
+  padding: 45px 20%;
+}
+
+.admin-title {
+  font-size: 34px;
+  font-weight: 700;
+  margin-bottom: 6px;
+
+  background: linear-gradient(90deg, #6c5ffc, #927cff);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.admin-subtitle {
+  color: #6b6b7a;
+  font-size: 15px;
+  margin-bottom: 35px;
+}
+
+/* ==========================================================
+   MODEL TRAINING CARD (Gemini / GPT / Claude)
+========================================================== */
+.admin-card {
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 22px;
+  padding: 32px;
+  margin-bottom: 45px;
+
+  border: 1px solid rgba(200, 200, 230, 0.22);
+  backdrop-filter: blur(14px);
+
+  box-shadow:
+    0 12px 28px rgba(180, 175, 220, 0.28),
+    0 2px 4px rgba(150, 150, 200, 0.15);
+
+  transition: 0.26s ease;
+}
+
+.admin-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 16px 36px rgba(160, 150, 255, 0.28),
+    0 3px 6px rgba(150, 150, 200, 0.18);
+}
+
+.card-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  color: #504f70;
+}
+
+/* ==========================================================
+   INPUT FIELDS — Soft, Rounded, Minimal
+========================================================== */
+.label {
+  margin-top: 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #4e4e65;
+}
+
+.input,
+textarea,
+input[type="file"] {
+  width: 100%;
+  margin-top: 8px;
+  padding: 14px;
+
+  border-radius: 14px;
+  background: #fafaff;
+  border: 1px solid #d7d7eb;
+
+  font-size: 15px;
+  color: #333;
+  transition: 0.2s;
+}
+
+.input:focus,
+textarea:focus {
+  border-color: #7c6cff;
+  box-shadow: 0 0 0 3px rgba(120, 110, 255, 0.25);
+  outline: none;
+}
+
+/* ==========================================================
+   TRAINING OPTIONS (RAG + LoRA Checkboxes)
+========================================================== */
+.training-options {
+  display: flex;
+  gap: 30px;
+  margin: 20px 0 25px;
+}
+
+.training-options label {
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ==========================================================
+   TRAIN BUTTON
+========================================================== */
+.upload-train-btn {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 14px;
+
+  background: linear-gradient(135deg, #7d72ff, #a18aff);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+
+  box-shadow: 0 6px 18px rgba(150, 135, 255, 0.32);
+  transition: 0.26s;
+}
+
+.upload-train-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-2px);
+}
+
+.upload-train-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ==========================================================
+   STATUS MESSAGE
+========================================================== */
+.status-msg {
+  margin-top: 14px;
+  padding: 12px 14px;
+
+  background: #f0edff;
+  border-left: 4px solid #7e74ff;
+
+  border-radius: 10px;
+  font-size: 14px;
+  color: #4c4470;
+
+  box-shadow: 0 3px 12px rgba(170, 170, 210, 0.2);
+}
+
+/* ==========================================================
+   ACTIVE VERSION SECTION
+========================================================== */
+.active-title {
+  margin-top: 28px;
+  font-size: 19px;
+  font-weight: 600;
+  color: #4d4d70;
+}
+
+.no-version {
+  opacity: 0.65;
+  margin-top: 6px;
+}
+
+.admin-card ul {
+  padding-left: 20px;
+  margin-top: 10px;
+}
+
+.admin-card li {
+  margin-bottom: 7px;
+  color: #525266;
+}
+
+/* DELETE BUTTON */
+.delete-btn {
+  margin-top: 14px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  width: 180px;
+  font-size: 14px;
+
+  background: #ff5c5c;
+  color: white;
+
+  box-shadow: 0 4px 12px rgba(255, 80, 80, 0.35);
+  transition: 0.25s;
+}
+
+.delete-btn:hover {
+  background: #e64545;
+}
+
+/* ==========================================================
+   FOOTER
+========================================================== */
+.admin-footer {
+  text-align: center;
+  margin-top: 40px;
+  opacity: 0.6;
+  font-size: 14px;
+  padding-bottom: 25px;
+}
+
+/* ==========================================================
+   RESPONSIVE DESIGN
+========================================================== */
+@media (max-width: 1200px) {
+  .admin-main {
+    padding: 40px 12%;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-main {
+    padding: 40px 8%;
+  }
+}
+
+@media (max-width: 700px) {
+  .admin-main {
+    padding: 25px 16px;
+  }
+
+  .admin-navbar {
+    padding: 12px 20px;
+  }
+
+  .logo-title {
+    font-size: 18px;
+  }
+}
+/* INPUT BAR */
+.chat-input {
+  background: #ffffffdd;
+  backdrop-filter: blur(8px);
+  padding: 16px 20%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid rgba(180, 180, 210, 0.22);
+  box-shadow: 0 -2px 10px rgba(160, 160, 200, 0.15);
+}
+
+/* Input box */
+.chat-input input {
+  flex: 1;
+  height: 48px;
+  border-radius: 14px;
+  background: #fafaff;
+  border: 1px solid #d7d7eb;
+  padding: 0 14px;
+  font-size: 15px;
+}
+
+/* Mic button (Material Icon) */
+.mic-right {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+}
+
+.mic-right .material-icons {
+  font-size: 28px;
+  color: #222;
+}
+
+.mic-right:hover .material-icons {
+  opacity: 0.7;
+}
+
+/* Recording blink + red mic */
+.mic-right.recording .material-icons {
+  color: #e74c3c;
+  animation: blinkMic 1s infinite;
+}
+
+@keyframes blinkMic {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+/* Send button */
+.send-button {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #8578ff, #9c88ff);
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.send-button:hover {
+  opacity: 0.9;
+}
+.chat-input {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  background: #ffffffdd;
+  backdrop-filter: blur(8px);
+  padding: 20px;
+  border-top: 1px solid rgba(180, 180, 210, 0.22);
+  box-shadow: 0 -2px 10px rgba(160, 160, 200, 0.15);
+}
+
+/* Make input stretch wide like ChatGPT */
+.input-wrapper {
+  width: 70%;   /* ← adjust (60–80%) depending on your preference */
+  position: relative;
+}
+
+.input-wrapper input {
+  width: 100%;
+  height: 48px;
+  border-radius: 16px;
+  background: #fafaff;
+  border: 1px solid #d7d7eb;
+  padding: 0 30px 0 10px;
+  font-size: 16px;
+}
+
+/* Mic inside input */
+.mic-inside {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.mic-inside .material-icons {
+  font-size: 26px;
+  color: #6d5ffc;
+}
+
+/* Send button aligned to the right */
+.send-button {
+  width: 52px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #8578ff, #9c88ff);
+  border: none;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+/* BOT ROW → left side icon */
+.bot-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  margin: 16px 0;
+}
+
+/* USER ROW → bubble first, icon right */
+.user-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: flex-start;
+  margin: 16px 0;
+}
+
+/* Icons */
+.chat-avatar {
+  margin: 0 10px;
+  display: flex;
+  align-items: center;
+}
+
+.bot-icon {
+  font-size: 30px;
+  color: #7d6cff;
+}
+
+.user-icon {
+  font-size: 30px;
+  color: #6f6f8a;
+}
+
+/* Message bubble */
+.chat-bubble {
+  max-width: 70%;
+  padding: 14px 18px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(150, 150, 200, 0.25);
+}
+
+.user-row .chat-bubble {
+  background: linear-gradient(135deg, #8578ff, #9c88ff);
+  color: #fff;
+}
+
+/* Mic inside input */
+.input-wrapper {
+  position: relative;
+  width: 70%;
+}
+
+.mic-inside {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.mic-inside .material-icons {
+  font-size: 26px;
+  color: #6d5ffc;
+}
+
+.mic-inside.recording .material-icons {
+  color: #ff4444;
+  animation: blinkMic 1s infinite;
+}
+
+@keyframes blinkMic {
+  50% { opacity: 0.3; }
+}
+
+/* Navbar icons */
+.bell-icon {
+  color: #8a7bff;
+}
+
+.login-icon {
+  background: linear-gradient(135deg, #7d6cff, #a48aff);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+/* Page Wrapper */
+.page-container {
+  min-height: 100vh;
+  background: linear-gradient(140deg, #f5f7ff, #ecebfd, #f8f9ff);
+}
+
+/* Content wrapper */
+.content-wrapper {
+  padding: 40px 20%;
+}
+
+/* Titles */
+.page-title {
+  font-size: 32px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #6d5ffc, #927cff);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.page-subtext {
+  color: #6b6b7a;
+  margin-bottom: 35px;
+}
+
+/* Services grid */
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 28px;
+}
+
+.service-card {
+  background: rgba(255, 255, 255, 0.85);
+  padding: 26px;
+  border-radius: 20px;
+  box-shadow: 0 6px 16px rgba(150, 150, 200, 0.25);
+  border: 1px solid rgba(200, 200, 230, 0.25);
+  backdrop-filter: blur(10px);
+  transition: 0.25s;
+}
+
+.service-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 26px rgba(150, 140, 255, 0.3);
+}
+
+/* Contact card */
+.contact-card {
+  background: rgba(255, 255, 255, 0.85);
+  padding: 30px;
+  border-radius: 20px;
+  box-shadow: 0 6px 16px rgba(150, 150, 200, 0.25);
+  border: 1px solid rgba(200, 200, 230, 0.25);
+  width: 60%;
+}
+/* Smooth Fade Animation */
+.fade-in {
+  animation: fadeIn 0.4s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Header */
+.contact-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+/* Grid layout */
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 28px;
+}
+
+/* Contact Box */
+.contact-box {
+  background: rgba(255, 255, 255, 0.85);
+  padding: 28px;
+  border-radius: 20px;
+  border: 1px solid rgba(200, 200, 230, 0.25);
+  box-shadow: 0 6px 16px rgba(150, 150, 200, 0.22);
+  transition: 0.25s ease;
+}
+
+.contact-box:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 28px rgba(150, 140, 255, 0.32);
+}
+
+/* Icon Circle */
+.contact-icon-box {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #8070ff33, #a690ff33);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.contact-big-icon {
+  font-size: 30px;
+  color: #6d5ffc;
+}
+
+/* Contact Title */
+.contact-title {
+  margin-bottom: 10px;
+  font-size: 18px;
+  color: #4d4d70;
+  font-weight: 600;
+}
+
+/* Social Buttons */
+.social-section {
+  margin-top: 40px;
+  text-align: center;
+}
+
+.social-icons-row {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 12px;
+}
+
+.social-pill {
+  padding: 10px 20px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: #fff;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(150, 140, 255, 0.25);
+  transition: 0.25s ease;
+}
+
+/* Social Button Colors */
+.twitter { background: #1DA1F2; }
+.facebook { background: #4267B2; }
+.youtube { background: #FF0000; }
+
+.social-pill:hover {
+  transform: translateY(-3px);
+  opacity: 0.9;
+}
+
+/* ==========================================================
+   USER CHAT ICON — Modern Rounded Bubble
+========================================================== */
+
+.user-icon {
+  font-size: 26px;
+  padding: 10px;
+  border-radius: 14px;
+
+  background: linear-gradient(135deg, #8478ff, #9d8dff);
+  color: #fff;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  box-shadow: 0 4px 18px rgba(140, 120, 255, 0.35);
+  transition: 0.25s ease;
+}
+
+.user-icon:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 24px rgba(140, 120, 255, 0.45);
+}
+
+/* BOT ICON MATCHED STYLE */
+.bot-icon {
+  font-size: 26px;
+  padding: 10px;
+  border-radius: 14px;
+
+  background: linear-gradient(135deg, #ffffff, #f5f0ff);
+  color: #6d5ffc;
+
+  box-shadow: 0 4px 14px rgba(180, 170, 255, 0.28);
+  transition: 0.25s ease;
+}
+
+.bot-icon:hover {
+  transform: translateY(-3px);
+}
