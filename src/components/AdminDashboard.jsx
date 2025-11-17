@@ -2,149 +2,158 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./AdminDashboard.css";
-import "./ChatApp.css";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  // 3 Ollama Models
-  const modelNames = {
-    llama: "LLaMA 3.2",
-    phi: "Phi-3",
-    mistral: "Mistral",
+  // ✔ Added LLaMA 3.1 Model here
+  const modelList = {
+    gemini: "Gemini-2.5-flash",
+    ollama: "Ollama (Gemma 2B)",
+    llama3: "Ollama (LLaMA 3.1 - 8B)"
   };
 
+  const [activeModel, setActiveModel] = useState("gemini");
+
   const [models, setModels] = useState({
-    llama: {
-      version: "",
-      description: "",
-      files: [],
-      rag: true,
-      lora: false,
-      loading: false,
-      msg: "",
-      info: null,
-    },
-    phi: {
-      version: "",
-      description: "",
-      files: [],
-      rag: true,
-      lora: false,
-      loading: false,
-      msg: "",
-      info: null,
-    },
-    mistral: {
-      version: "",
-      description: "",
-      files: [],
-      rag: true,
-      lora: false,
-      loading: false,
-      msg: "",
-      info: null,
-    },
+    gemini: { version: "", description: "", files: [], rag: true, lora: false, info: null, loading: false, progress: 0 },
+    ollama: { version: "", description: "", files: [], rag: true, lora: false, info: null, loading: false, progress: 0 },
+    llama3: { version: "", description: "", files: [], rag: true, lora: false, info: null, loading: false, progress: 0 },
   });
 
-  // Check Admin Login + Load Model Info
+  const [versionHistory, setVersionHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   useEffect(() => {
     async function init() {
       try {
-        const check = await axios.get("/api/admin/check");
-        if (!check.data.logged_in) navigate("/admin");
-
-        // Load train info for each model
-        for (const key of Object.keys(modelNames)) {
-          const res = await axios.get(`/api/admin/train/info?model=${key}`);
-          if (res.data?.trained) {
-            setModels((prev) => ({
-              ...prev,
-              [key]: { ...prev[key], info: res.data },
-            }));
-          }
+        const login = await axios.get("/api/admin/check");
+        if (!login.data.logged_in) {
+          navigate("/admin");
+          return;
         }
-      } catch (e) {
-        console.log("Error:", e);
+
+        for (const key of Object.keys(modelList)) {
+          try {
+            const info = await axios.get(`/api/admin/train/info?model=${key}`);
+            if (info.data && info.data.trained !== false) {
+              setModels(prev => ({ ...prev, [key]: { ...prev[key], info: info.data } }));
+            }
+          } catch (e) {}
+        }
+
+        await refreshHistory();
+      } catch (err) {
+        console.error("Init error", err);
       }
     }
     init();
   }, []);
 
-  const updateField = (model, field, value) => {
-    setModels((prev) => ({
-      ...prev,
-      [model]: { ...prev[model], [field]: value },
-    }));
+  const refreshHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const h = await axios.get("/api/admin/train/history");
+      setVersionHistory(h.data?.versions || []);
+    } catch (e) {
+      setVersionHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
   };
 
-  const handleFileChange = (model, e) => {
-    setModels((prev) => ({
-      ...prev,
-      [model]: { ...prev[model], files: e.target.files },
-    }));
+  const updateField = (model, key, value) => {
+    setModels(prev => ({ ...prev, [model]: { ...prev[model], [key]: value } }));
   };
 
-  const toggle = (model, key) => {
-    setModels((prev) => ({
-      ...prev,
-      [model]: { ...prev[model], [key]: !prev[model][key] },
-    }));
-  };
-
-  const trainModel = async (model) => {
-    const m = models[model];
-
+  const trainModel = async modelKey => {
+    const m = models[modelKey];
     if (!m.version) return alert("Version name required!");
-    if (!m.files.length) return alert("Please upload PDF files!");
+    if (!m.files.length) return alert("Upload at least one PDF!");
 
     const form = new FormData();
     form.append("version", m.version);
     form.append("description", m.description);
-    form.append("model_key", model);
+    form.append("model_key", modelKey);
     form.append("train_rag", m.rag);
     form.append("train_lora", m.lora);
 
-    for (let f of m.files) form.append("files", f);
+    for (let i = 0; i < m.files.length; i++) {
+      form.append("files", m.files[i]);
+    }
 
     try {
-      updateField(model, "loading", true);
-      updateField(model, "msg", "🚀 Training started...");
+      updateField(modelKey, "loading", true);
+      updateField(modelKey, "progress", 10);
 
-      await axios.post("/api/admin/train", form);
+      const res = await axios.post("/api/admin/train", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: p => {
+          const percent = p.total ? Math.round((p.loaded / p.total) * 60) : 30;
+          updateField(modelKey, "progress", percent);
+        }
+      });
 
-      updateField(model, "msg", "✅ Training complete!");
-      updateField(model, "loading", false);
+      updateField(modelKey, "progress", 90);
 
-      const info = await axios.get(`/api/admin/train/info?model=${model}`);
-      updateField(model, "info", info.data);
+      const info = await axios.get(`/api/admin/train/info?model=${modelKey}`);
+      if (info.data && info.data.trained !== false) {
+        updateField(modelKey, "info", info.data);
+      }
+
+      await refreshHistory();
+
+      updateField(modelKey, "progress", 100);
+      setTimeout(() => updateField(modelKey, "progress", 0), 700);
+      updateField(modelKey, "loading", false);
+
+      alert(res.data?.message || "Trained successfully.");
     } catch (err) {
-      console.error(err);
-      updateField(model, "msg", "❌ Training failed");
-      updateField(model, "loading", false);
+      console.error("Train error", err);
+      updateField(modelKey, "loading", false);
+      updateField(modelKey, "progress", 0);
+      alert("Training failed.");
     }
   };
 
-  const deleteModel = async (model) => {
-    if (!window.confirm("Are you sure you want to delete this model data?"))
+  const activateVersion = async (modelKey, version) => {
+    if (!window.confirm(`Activate version "${version}" for model ${modelKey}?`))
       return;
 
     try {
-      await axios.post(`/api/admin/train/delete?model=${model}`);
-
-      setModels((prev) => ({
-        ...prev,
-        [model]: { ...prev[model], info: null, msg: "❌ Deleted successfully" },
-      }));
-    } catch (err) {
-      console.error(err);
-      alert("Error deleting model.");
+      const res = await axios.post("/api/admin/activate", { model: modelKey, version });
+      if (res.data?.success) {
+        await refreshHistory();
+        const info = await axios.get(`/api/admin/train/info?model=${modelKey}`);
+        updateField(modelKey, "info", info.data && info.data.trained !== false ? info.data : null);
+        alert("Activated.");
+      } else alert(res.data?.message);
+    } catch (e) {
+      alert("Activation failed.");
     }
   };
 
+  const deleteVersion = async (modelKey, version) => {
+    if (!window.confirm(`Delete version "${version}" for model ${modelKey}?`))
+      return;
+
+    try {
+      const res = await axios.post("/api/admin/delete-version", { model: modelKey, version });
+      if (res.data?.success) {
+        await refreshHistory();
+        const info = await axios.get(`/api/admin/train/info?model=${modelKey}`);
+        updateField(modelKey, "info", info.data && info.data.trained !== false ? info.data : null);
+        alert("Deleted.");
+      } else alert(res.data?.message);
+    } catch (e) {
+      alert("Delete failed.");
+    }
+  };
+
+  const modelLabel = key => modelList[key] || key;
+
   return (
     <div className="admin-page">
-      {/* NAVBAR */}
       <nav className="admin-navbar">
         <div className="logo-box">
           <div className="logo-circle">💼</div>
@@ -153,114 +162,142 @@ export default function AdminDashboard() {
             <div className="logo-sub">Support Center</div>
           </div>
         </div>
-
-        <button className="back-chat-btn" onClick={() => navigate("/")}>
-          Back to Chat
-        </button>
       </nav>
 
       <div className="admin-main">
+
+        <div className="back-chat-wrapper">
+          <button className="back-chat-btn" onClick={() => navigate("/")}>🔙 Back to Chat</button>
+        </div>
+
         <h1 className="admin-title">🛠️ Admin Dashboard</h1>
-        <p className="admin-subtitle">Train AI models independently</p>
+        <p className="admin-sub">Train & Manage AI Models</p>
 
-        {/* 3 MODEL SECTIONS */}
-        {Object.keys(modelNames).map((model) => (
-          <div className="admin-card" key={model}>
-            <h2 className="card-title">🤖 {modelNames[model]}</h2>
-
-            {/* VERSION */}
-            <label className="label">Version Name *</label>
-            <input
-              type="text"
-              className="input"
-              placeholder="e.g., MSME ONE 2.0"
-              value={models[model].version}
-              onChange={(e) => updateField(model, "version", e.target.value)}
-            />
-
-            {/* DESCRIPTION */}
-            <label className="label">Description</label>
-            <textarea
-              className="textarea"
-              placeholder="Short description..."
-              value={models[model].description}
-              onChange={(e) =>
-                updateField(model, "description", e.target.value)
-              }
-            ></textarea>
-
-            {/* FILE UPLOAD */}
-            <label className="label">Upload PDF *</label>
-            <input
-              type="file"
-              multiple
-              accept=".pdf"
-              onChange={(e) => handleFileChange(model, e)}
-            />
-
-            {/* RAG / LORA */}
-            <div className="training-options">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={models[model].rag}
-                  onChange={() => toggle(model, "rag")}
-                />
-                🎯 Train RAG
-              </label>
-
-              <label>
-                <input
-                  type="checkbox"
-                  checked={models[model].lora}
-                  onChange={() => toggle(model, "lora")}
-                />
-                🧩 Train LoRA
-              </label>
-            </div>
-
-            {/* TRAIN BUTTON */}
+        {/* Model Tabs */}
+        <div className="model-tabs">
+          {Object.keys(modelList).map(key => (
             <button
-              className="upload-train-btn"
-              disabled={models[model].loading}
-              onClick={() => trainModel(model)}
+              key={key}
+              className={`tab-btn ${activeModel === key ? "active" : ""}`}
+              onClick={() => setActiveModel(key)}
             >
-              {models[model].loading ? "⏳ Training..." : "🚀 Upload & Train"}
+              {modelList[key]}
+            </button>
+          ))}
+        </div>
+
+        {/* Active Model Card */}
+        <div className="admin-card">
+          <h2 className="card-title">🤖 {modelLabel(activeModel)}</h2>
+
+          <label className="label">Version Name *</label>
+          <input
+            className="input"
+            value={models[activeModel].version}
+            placeholder="e.g., MSME ONE Q1 2025"
+            onChange={e => updateField(activeModel, "version", e.target.value)}
+          />
+
+          <label className="label">Description</label>
+          <textarea
+            className="textarea"
+            value={models[activeModel].description}
+            placeholder="Short description (optional)"
+            onChange={e => updateField(activeModel, "description", e.target.value)}
+          />
+
+          <label className="label">Upload PDF *</label>
+          <input
+            type="file"
+            multiple
+            accept=".pdf"
+            onChange={e => updateField(activeModel, "files", e.target.files)}
+          />
+
+          <div className="training-options">
+            <label><input type="checkbox"
+              checked={models[activeModel].rag}
+              onChange={() => updateField(activeModel, "rag", !models[activeModel].rag)}
+            /> 🎯 Train RAG</label>
+
+            <label><input type="checkbox"
+              checked={models[activeModel].lora}
+              onChange={() => updateField(activeModel, "lora", !models[activeModel].lora)}
+            /> 🧩 Train LoRA</label>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
+            <button className="upload-btn" onClick={() => trainModel(activeModel)}>
+              🚀 {models[activeModel].loading ? "Training..." : "Upload & Train"}
             </button>
 
-            {models[model].msg && (
-              <p className="status-msg">{models[model].msg}</p>
-            )}
-
-            {/* ACTIVE VERSION */}
-            <h3 className="active-title">📌 Active Version</h3>
-            {!models[model].info ? (
-              <p className="no-version">No version trained yet.</p>
-            ) : (
-              <>
-                <p><b>📅 Trained On:</b> {models[model].info.timestamp}</p>
-                <p><b>🔧 Model:</b> {models[model].info.model}</p>
-                <p><b>📄 Files:</b></p>
-                <ul>
-                  {models[model].info.files.map((f, i) => (
-                    <li key={i}>📘 {f}</li>
-                  ))}
-                </ul>
-
-                <button
-                  className="delete-btn"
-                  onClick={() => deleteModel(model)}
-                >
-                  🗑️ Delete Model Data
-                </button>
-              </>
+            {models[activeModel].loading && (
+              <div className="progress-bar small">
+                <div className="progress-fill" style={{ width: `${models[activeModel].progress}%` }}></div>
+              </div>
             )}
           </div>
-        ))}
+
+          <h3 className="active-title">📌 Active Version</h3>
+          {!models[activeModel].info ? (
+            <p className="no-version">No trained version yet.</p>
+          ) : (
+            <div className="version-box">
+              <p><b>📅 Trained:</b> {models[activeModel].info.timestamp}</p>
+              <p>
+                <b>Version:</b> {models[activeModel].info.version}
+                {models[activeModel].info.active ? <span className="active-pill">ACTIVE</span> : null}
+              </p>
+              <p><b>Files:</b></p>
+              <ul>
+                {models[activeModel].info.files.map((f, i) => <li key={i}>📘 {f}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* History */}
+        <div className="admin-card">
+          <div className="flex-between">
+            <h2 className="card-title">📚 Version History</h2>
+            <button className="refresh-btn" onClick={refreshHistory} disabled={loadingHistory}>
+              {loadingHistory ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+
+          {versionHistory.length === 0 ? (
+            <p className="no-version">No previous versions.</p>
+          ) : (
+            <div className="history-list">
+              {versionHistory.map((v, i) => (
+                <div key={i} className="history-row">
+                  <div className="history-meta">
+                    <h4 className="vh-title">{v.version}</h4>
+                    <p className="vh-date">
+                      📅 {v.timestamp} • Model: {v.model}
+                      {v.active ? <span className="active-pill">ACTIVE</span> : null}
+                    </p>
+                    <p className="vh-desc">{v.description}</p>
+                  </div>
+
+                  <div className="history-actions">
+                    <button className="small-btn" onClick={() => activateVersion(v.model, v.version)} disabled={v.active}>
+                      Activate
+                    </button>
+                    <button className="small-btn danger" onClick={() => deleteVersion(v.model, v.version)}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <footer className="admin-footer">
-          © {new Date().getFullYear()} MSME ONE Assistant — All Rights Reserved.
+          © 2025 MSME ONE — All Rights Reserved.
         </footer>
+
       </div>
     </div>
   );

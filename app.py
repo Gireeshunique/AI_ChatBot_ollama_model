@@ -1,296 +1,523 @@
+# app.py
 import os
 import json
 import time
 import sys
-from flask import Flask, request, jsonify, send_from_directory, session
+import subprocess
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from deep_translator import GoogleTranslator
-from PyPDF2 import PdfReader
-import whisper
-import requests
-import threading
 from dotenv import load_dotenv
+import google.generativeai as genai
+import requests
+import numpy as np
+import faiss
+from sentence_transformers import SentenceTransformer
+import threading
+import whisper
+import shutil
+import tempfile
 
-# ----------------- Environment Setup -----------------
+# ----------------- Env & Paths -----------------
 load_dotenv()
-sys.stdout.reconfigure(encoding="utf-8")
-print(">>> USING PYTHON FROM:", sys.executable)
+BACKEND_ROOT = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BACKEND_ROOT, "data")
+UPLOADS_DIR = os.path.join(DATA_DIR, "uploads")
+CORPUS_PATH = os.path.join(DATA_DIR, "pdf_corpus.txt")
+METADATA_PATH = os.path.join(DATA_DIR, "metadata.json")
+EMBEDDINGS_PATH = os.path.join(DATA_DIR, "embeddings.npy")
+INDEX_PATH = os.path.join(DATA_DIR, "faiss.index")
+CHAT_LOG = os.path.join(DATA_DIR, "chat_logs.json")
+TRAIN_INFO_PATH = os.path.join(DATA_DIR, "train_info_versions.json")
 
-# ----------------- Config -----------------
-DATA_DIR = "data"
 os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(UPLOADS_DIR, exist_ok=True)
 
-MODEL_MAP = {
-    "llama": "llama3.2",
-    "phi": "phi3",
-    "mistral": "mistral"
-}
+# ----------------- Gemini API -----------------
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+    except Exception as e:
+        print("Warning: genai.configure() failed:", e)
 
-# ----------------- Flask Setup -----------------
+# default model name and gen config
+MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash")
+GEN_CONFIG = {"temperature": 0.2, "max_output_tokens": 800, "top_p": 0.95}
+
+# ----------------- Flask app -----------------
 app = Flask(__name__, static_folder="../frontend/build", static_url_path="/")
-app.secret_key = "super_secret_key_change_this"
 CORS(app, supports_credentials=True)
+app.secret_key = os.getenv("FLASK_SECRET", "change_this_secret")
 
-# ----------------- Whisper Loading -----------------
+# ----------------- Load sentence-transformer for queries ----------- 
+embed_model = None
+index = None
+metadata = None
+
+def load_index_and_models():
+    global embed_model, index, metadata
+    try:
+        print("Loading embed model...")
+        embed_model = SentenceTransformer("all-MiniLM-L6-v2")
+    except Exception as e:
+        print("Failed to load sentence-transformer:", e)
+        embed_model = None
+
+    if os.path.exists(INDEX_PATH) and os.path.exists(METADATA_PATH) and os.path.exists(EMBEDDINGS_PATH):
+        try:
+            print("Loading FAISS index and metadata...")
+            index = faiss.read_index(INDEX_PATH)
+            # optional: check dimension compatibility
+            metadata = json.load(open(METADATA_PATH, "r", encoding="utf-8"))
+            print("Index & metadata loaded.")
+        except Exception as e:
+            print("Error loading index/metadata:", e)
+            index = None
+            metadata = None
+    else:
+        print("Index or metadata missing — run ingestion first.")
+
+load_index_and_models()
+
+# ----------------- Whisper (optional) -----------------
 whisper_model = None
 def load_whisper():
     global whisper_model
-    print("🎙️ Loading Whisper model...")
-    whisper_model = whisper.load_model("small", device="cpu")
-    print("✅ Whisper loaded successfully!")
+    try:
+        print("Loading Whisper model (background)...")
+        # If you have GPU, change device to "cuda"
+        whisper_model = whisper.load_model("small", device="cpu")
+        print("Whisper loaded.")
+    except Exception as e:
+        print("Whisper load error:", e)
+        whisper_model = None
 
-threading.Thread(target=load_whisper).start()
+# Start background thread to warm whisper (non-blocking)
+threading.Thread(target=load_whisper, daemon=True).start()
 
-# ----------------- Translation -----------------
+# ----------------- Utilities -----------------
 def translate_text(text, target_lang):
+    if not text or not text.strip():
+        return text
     try:
         return GoogleTranslator(source="auto", target=target_lang).translate(text)
-    except:
+    except Exception as e:
+        print("Translate error:", e)
         return text
 
-
-# ----------------- OLLAMA CHAT (FULLY FIXED) -----------------
-def ollama_chat_response(prompt, lang="auto", selected_model="llama"):
+def retrieve_chunks(query, top_k=4):
+    global embed_model, index, metadata
+    if embed_model is None or index is None or metadata is None:
+        return []
     try:
-        model_name = MODEL_MAP.get(selected_model, "llama3.2")
-
-        # System instruction
-        if lang == "te":
-            system = "Reply ONLY in Telugu using natural friendly language."
-        elif lang == "en":
-            system = "Reply ONLY in English, very clearly."
-        else:
-            system = "Detect user's language and reply in that language."
-
-        final_prompt = f"{system}\n\n{prompt}"
-
-        payload = {
-            "model": model_name,
-            "prompt": final_prompt,
-            "stream": False    # ❗ REQUIRED TO FIX EMPTY RESPONSE
-        }
-
-        response = requests.post(
-            "http://localhost:11434/api/generate",
-            json=payload,
-            timeout=60
-        )
-
-        # Debug output to identify any error
-        print("\n🔍 RAW OLLAMA RESPONSE:", response.text, "\n")
-
-        # Parse JSON
-        data = response.json()
-
-        reply = data.get("response", "")
-
-        if not reply.strip():
-            return "⚠️ I couldn't generate a reply. Please try again."
-
-        return reply.strip()
-
-    except Exception as e:
-        print("❌ OLLAMA ERROR:", e)
-        return "⚠️ Ollama model error."
-
-
-# ----------------- Helpers -----------------
-def get_model_paths(model_key):
-    base = os.path.join(DATA_DIR, model_key)
-    os.makedirs(base, exist_ok=True)
-
-    return {
-        "dir": base,
-        "corpus": os.path.join(base, "pdf_corpus.txt"),
-        "info": os.path.join(base, "train_info.json")
-    }
-
-
-def log_chat(model, user, question, answer):
-    log_path = os.path.join(DATA_DIR, f"chat_logs_{model}.json")
-
-    logs = []
-    if os.path.exists(log_path):
+        q_emb = embed_model.encode([query], convert_to_numpy=True)
+        # normalize embeddings in-place (faiss helper)
         try:
-            with open(log_path, "r", encoding="utf-8") as f:
+            faiss.normalize_L2(q_emb)
+        except Exception:
+            # fallback normalization
+            q_emb = q_emb / (np.linalg.norm(q_emb, axis=1, keepdims=True) + 1e-10)
+        D, I = index.search(q_emb.astype("float32"), top_k)
+        results = []
+        for idx in I[0]:
+            if idx < 0 or idx >= len(metadata):
+                continue
+            # metadata expected to be list of dicts with "text" key
+            results.append(metadata[idx].get("text", ""))
+        return results
+    except Exception as e:
+        print("retrieve_chunks error:", e)
+        return []
+
+def make_context_text(chunks):
+    joined = "\n\n".join(chunks)
+    # keep context to a reasonable size for local models / Gemini
+    return joined[:3500]
+
+# ----------------- Gemini call -----------------
+def call_gemini(prompt, lang="auto"):
+    if not GEMINI_API_KEY:
+        return "⚠️ Gemini API key not set."
+    try:
+        system_prompt = ""
+        if lang == "te":
+            system_prompt = "మీరు తెలుగులో సమగ్ర, సహజమైన మరియు సరళమైన సమాధానం ఇవ్వాలి."
+        elif lang == "en":
+            system_prompt = "You are an assistant. Reply in English clearly and fully."
+        else:
+            system_prompt = "You are a multilingual assistant. Detect the language and reply in the same language."
+
+        full = f"{system_prompt}\n\nContext:\n{prompt}\n\nAnswer the user's question using the context above if relevant."
+        # Using the available genai API; keep this try/catch since API surface may differ
+        model = genai.GenerativeModel(MODEL_NAME, generation_config=GEN_CONFIG)
+        resp = model.generate_content(full)
+        # resp.text is expected; fallback if not present
+        if resp is None:
+            return "⚠️ No response from Gemini."
+        text = getattr(resp, "text", None)
+        if text:
+            return text.strip()
+        # some SDKs return dict-like
+        try:
+            j = resp if isinstance(resp, dict) else resp.to_dict()
+            if "candidates" in j:
+                # heuristic: join candidate texts
+                return " ".join(c.get("content", "") for c in j.get("candidates", [])).strip()
+        except Exception:
+            pass
+        return "⚠️ No response from Gemini."
+    except Exception as e:
+        print("Gemini error:", e)
+        return "⚠️ Gemini API error."
+
+# ----------------- Ollama generic call -----------------
+def call_ollama_generic(model_name, context_text, question, timeout=40):
+    """
+    model_name - exact model string to send to Ollama, e.g. "gemma:2b" or "llama3.1:8b"
+    """
+    endpoint = "http://localhost:11434/api/generate"
+    full_prompt = (
+        "Use the context below to answer the question. If the answer is not in the context, answer concisely.\n\n"
+        f"CONTEXT:\n{context_text}\n\nQUESTION:\n{question}\n\nAnswer:"
+    )
+    try:
+        r = requests.post(endpoint, json={"model": model_name, "prompt": full_prompt, "stream": False}, timeout=timeout)
+        print(f"[Ollama] status={r.status_code}")
+        print("[Ollama] resp preview:", (r.text or "")[:500])
+        if r.status_code != 200:
+            return f"⚠️ Ollama error {r.status_code}: {r.text}"
+        try:
+            j = r.json()
+        except ValueError:
+            return r.text or "⚠️ Ollama returned non-JSON response."
+        # Prefer common keys
+        if isinstance(j, dict):
+            if "response" in j and isinstance(j["response"], str):
+                return j["response"].strip()
+            if "choices" in j and isinstance(j["choices"], list) and len(j["choices"]) > 0:
+                first = j["choices"][0]
+                for key in ("text", "content", "message", "output"):
+                    if key in first and isinstance(first[key], str):
+                        return first[key].strip()
+        # fallback: stringify json
+        return str(j)[:2000]
+    except requests.exceptions.ConnectionError:
+        return "⚠️ Ollama is not running on localhost:11434. Start it with: ollama serve"
+    except requests.Timeout:
+        return "⚠️ Ollama request timed out."
+    except Exception as e:
+        print("Ollama call error:", e)
+        return f"⚠️ Ollama call error: {e}"
+
+# ----------------- Chat logging -----------------
+def log_chat(model, question, answer):
+    logs = []
+    if os.path.exists(CHAT_LOG):
+        try:
+            with open(CHAT_LOG, "r", encoding="utf-8") as f:
                 logs = json.load(f)
-        except:
+        except Exception:
             logs = []
+    logs.append({"model": model, "question": question, "answer": answer, "ts": time.time()})
+    try:
+        with open(CHAT_LOG, "w", encoding="utf-8") as f:
+            json.dump(logs, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print("Failed to write chat log:", e)
 
-    logs.append({
-        "user": user,
-        "question": question,
-        "answer": answer,
-        "ts": time.time()
-    })
+# ----------------- Train info helpers -----------------
+def read_train_history():
+    if not os.path.exists(TRAIN_INFO_PATH):
+        return []
+    try:
+        return json.load(open(TRAIN_INFO_PATH, "r", encoding="utf-8"))
+    except Exception:
+        return []
 
-    with open(log_path, "w", encoding="utf-8") as f:
-        json.dump(logs, f, ensure_ascii=False, indent=2)
+def write_train_history(history):
+    try:
+        with open(TRAIN_INFO_PATH, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print("Failed to write train history:", e)
 
-
-# ----------------- ROUTES -----------------
-
-@app.route("/")
-def serve():
-    return send_from_directory(app.static_folder, "index.html")
-
-
-# ---------- CHAT ----------
+# ----------------- Routes -----------------
 @app.route("/api/chat", methods=["POST"])
 def chat():
-    data = request.get_json()
+    data = request.get_json(force=True)
     message = data.get("message", "").strip()
     lang = data.get("lang", "auto")
-    model_key = data.get("model", "llama")
-
-    paths = get_model_paths(model_key)
+    model_choice = data.get("model", "gemini")  # examples: "gemini", "ollama:gemma", "ollama:llama3"
+    top_k = int(data.get("top_k", 4))
 
     if not message:
-        return jsonify({"reply": "⚠️ Enter a message."})
+        return jsonify({"reply": "⚠️ Please enter a message."}), 400
 
-    # Translate Telugu → English for model input
-    query = message if lang != "te" else translate_text(message, "en")
+    # translate for retrieval if Telugu (keep search in English)
+    query_for_search = message if lang != "te" else translate_text(message, "en")
 
-    # Load corpus context
-    context = ""
-    if os.path.exists(paths["corpus"]):
-        with open(paths["corpus"], "r", encoding="utf-8") as f:
-            context = f.read()[:5000]
+    # retrieve RAG chunks
+    chunks = retrieve_chunks(query_for_search, top_k=top_k)
+    context_text = make_context_text(chunks)
 
-    prompt = f"Use this context if useful:\n{context}\n\nUser question:\n{query}"
+    answer = "⚠️ Unknown model selection."
+    # Decide which model to call
+    if model_choice == "gemini":
+        prompt = f"Context:\n{context_text}\n\nUser question:\n{message}"
+        answer = call_gemini(prompt, lang)
+    elif model_choice.startswith("ollama"):
+        # expected format "ollama:gemma" or "ollama:llama3"
+        parts = model_choice.split(":", 1)
+        if len(parts) == 2:
+            alias = parts[1]
+            if alias == "gemma":
+                # unified model name
+                answer = call_ollama_generic("gemma:2b", context_text, message)
+            elif alias == "llama3":
+                answer = call_ollama_generic("llama3.1:8b", context_text, message)
+            else:
+                answer = f"⚠️ Unknown Ollama model alias: {alias}"
+        else:
+            answer = "⚠️ Invalid model format."
+    else:
+        answer = "⚠️ Unsupported model."
 
-    reply = ollama_chat_response(prompt, lang, model_key)
+    log_chat(model_choice, message, answer)
+    return jsonify({"reply": answer, "used_context": chunks})
 
-    log_chat(model_key, "user", message, reply)
-
-    return jsonify({"reply": reply})
-
-
-# ---------- VOICE ----------
+# ---------- Transcription endpoint (Whisper) ----------
 @app.route("/api/transcribe", methods=["POST"])
 def transcribe_audio():
-    global whisper_model
+    """
+    Expects form-data with 'file' (audio blob) and optional 'lang' (en/te/auto) and model, feature, version.
+    Returns: { text: <transcribed text>, reply: <bot reply> }
+    """
+    file = request.files.get("file")
+    lang = request.form.get("lang", "en")
+    model_choice = request.form.get("model", "gemini")
+    feature = request.form.get("feature", "rag")
+    version = request.form.get("version", "default")
 
-    if whisper_model is None:
-        return jsonify({"error": "Whisper is loading..."}), 503
+    if file is None:
+        return jsonify({"error": "No audio file uploaded."}), 400
 
-    if "file" not in request.files:
-        return jsonify({"error": "No audio uploaded"}), 400
+    # save temp file
+    tmpdir = tempfile.mkdtemp()
+    try:
+        tmp_path = os.path.join(tmpdir, "upload.wav")
+        file.save(tmp_path)
 
-    file = request.files["file"]
-    model_key = request.form.get("model", "llama")
-    lang = request.form.get("lang", "auto")
+        # transcribe using whisper if available
+        text = ""
+        if whisper_model is not None:
+            try:
+                res = whisper_model.transcribe(tmp_path, language=None)
+                text = res.get("text", "").strip()
+            except Exception as e:
+                print("Whisper transcription error:", e)
+                text = ""
+        else:
+            # fallback: no whisper -> return an error text
+            return jsonify({"error": "Transcription model not available."}), 503
 
-    temp = "temp.wav"
-    file.save(temp)
+        # now reuse chat logic to generate reply
+        # translate for retrieval if Telugu
+        query_for_search = text if lang != "te" else translate_text(text, "en")
+        chunks = retrieve_chunks(query_for_search, top_k=4)
+        context_text = make_context_text(chunks)
 
-    result = whisper_model.transcribe(temp, language="te" if lang == "te" else None)
-    text = result.get("text", "").strip()
+        if model_choice == "gemini":
+            prompt = f"Context:\n{context_text}\n\nUser question:\n{text}"
+            reply = call_gemini(prompt, lang)
+        elif model_choice.startswith("ollama"):
+            parts = model_choice.split(":", 1)
+            alias = parts[1] if len(parts) > 1 else ""
+            if alias == "gemma":
+                reply = call_ollama_generic("gemma:2b", context_text, text)
+            elif alias == "llama3":
+                reply = call_ollama_generic("llama3.1:8b", context_text, text)
+            else:
+                reply = f"⚠️ Unknown Ollama model alias: {alias}"
+        else:
+            reply = "⚠️ Unsupported model."
 
-    paths = get_model_paths(model_key)
-
-    context = ""
-    if os.path.exists(paths["corpus"]):
-        with open(paths["corpus"], "r") as f:
-            context = f.read()[:5000]
-
-    query = text if lang != "te" else translate_text(text, "en")
-    prompt = f"Use this context if useful:\n{context}\n\nUser question:\n{query}"
-
-    reply = ollama_chat_response(prompt, lang, model_key)
-
-    os.remove(temp)
-    return jsonify({"text": text, "reply": reply})
-
-
-# ---------- ADMIN LOGIN ----------
-@app.route("/api/admin/login", methods=["POST"])
-def admin_login():
-    data = request.get_json()
-    if data.get("username") == "admin" and data.get("password") == "msme@123":
-        session["logged_in"] = True
-        return jsonify({"success": True})
-    return jsonify({"success": False}), 401
-
-
-@app.route("/api/admin/check")
-def admin_check():
-    return jsonify({"logged_in": session.get("logged_in", False)})
-
-
-# ---------- TRAIN ----------
-@app.route("/api/admin/train", methods=["POST"])
-def admin_train():
-    model_key = request.form.get("model_key", "llama")
-    paths = get_model_paths(model_key)
-
-    files = request.files.getlist("files")
-    if not files:
-        return jsonify({"message": "No PDF uploaded"}), 400
-
-    pdf_texts = []
-    filenames = []
-
-    for file in files:
-        save_path = os.path.join(paths["dir"], file.filename)
-        file.save(save_path)
-        filenames.append(file.filename)
-
+        log_chat(model_choice, text, reply)
+        return jsonify({"text": text, "reply": reply, "used_context": chunks})
+    finally:
         try:
-            reader = PdfReader(save_path)
-            text = "".join(page.extract_text() or "" for page in reader.pages)
-            pdf_texts.append(text)
-        except:
+            shutil.rmtree(tmpdir)
+        except Exception:
             pass
 
-    with open(paths["corpus"], "w", encoding="utf-8") as f:
-        f.write("\n\n".join(pdf_texts))
+# ---------- Admin: Train (upload PDFs) ----------
+@app.route("/api/admin/train", methods=["POST"])
+def admin_train():
+    files = request.files.getlist("files")
+    version = request.form.get("version", f"v{int(time.time())}")
+    description = request.form.get("description", "")
+    model_key = request.form.get("model_key", "ollama")
+    train_rag = request.form.get("train_rag", "true").lower() == "true"
 
-    info = {
-        "trained": True,
-        "model": MODEL_MAP[model_key],
-        "files": filenames,
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+    if not files:
+        return jsonify({"message": "No PDF files uploaded."}), 400
+
+    model_upload_dir = os.path.join(UPLOADS_DIR, model_key, version)
+    os.makedirs(model_upload_dir, exist_ok=True)
+
+    saved_files = []
+    for f in files:
+        fname = f.filename
+        dest = os.path.join(model_upload_dir, fname)
+        f.save(dest)
+        saved_files.append(fname)
+
+    train_info = {
+        "model": model_key,
+        "version": version,
+        "description": description,
+        "files": saved_files,
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "active": True
     }
+    history = read_train_history()
+    for entry in history:
+        if entry.get("model") == model_key:
+            entry["active"] = False
+    history.insert(0, train_info)
+    write_train_history(history)
 
-    with open(paths["info"], "w", encoding="utf-8") as f:
-        json.dump(info, f, indent=2)
+    if train_rag:
+        try:
+            tmp_zip = os.path.join(DATA_DIR, f"tmp_uploads_{int(time.time())}.zip")
+            import zipfile
+            with zipfile.ZipFile(tmp_zip, "w") as z:
+                for root, _, files_walk in os.walk(UPLOADS_DIR):
+                    for fname in files_walk:
+                        if fname.lower().endswith(".pdf"):
+                            z.write(os.path.join(root, fname), arcname=fname)
+            env = os.environ.copy()
+            env["ZIP_PATH_OVERRIDE"] = tmp_zip
+            # run ingestion script; don't crash on non-zero exit
+            subprocess.run([sys.executable, os.path.join(BACKEND_ROOT, "ingest_build_index.py")], env=env, check=False)
+            # reload index/models after ingestion
+            load_index_and_models()
+            try:
+                os.remove(tmp_zip)
+            except Exception:
+                pass
+        except Exception as e:
+            print("Failed to run ingestion:", e)
+            return jsonify({"message": "Uploaded but ingestion failed", "error": str(e)}), 500
 
-    return jsonify({"message": f"{MODEL_MAP[model_key]} trained successfully!"})
+    return jsonify({"message": f"Trained on {len(saved_files)} PDFs.", "train_info": train_info})
 
+# ---------- Admin: Activate version ----------
+@app.route("/api/admin/activate", methods=["POST"])
+def activate_version():
+    data = request.get_json(force=True)
+    model_key = data.get("model")
+    version = data.get("version")
 
-# ---------- GET TRAIN INFO ----------
-@app.route("/api/admin/train/info")
-def get_train_info():
-    model_key = request.args.get("model")
-    if not model_key:
-        return jsonify({"trained": False})
+    if not model_key or not version:
+        return jsonify({"success": False, "message": "Model and version required."}), 400
 
-    paths = get_model_paths(model_key)
+    history = read_train_history()
+    found = False
+    for entry in history:
+        if entry.get("model") == model_key and entry.get("version") == version:
+            entry["active"] = True
+            found = True
+        elif entry.get("model") == model_key:
+            entry["active"] = False
 
-    if not os.path.exists(paths["info"]):
-        return jsonify({"trained": False})
+    if not found:
+        return jsonify({"success": False, "message": "Version not found."}), 404
 
-    with open(paths["info"], "r", encoding="utf-8") as f:
-        return jsonify(json.load(f))
+    write_train_history(history)
+    return jsonify({"success": True, "message": "Activated", "version": version})
 
+# ---------- Admin: Delete version ----------
+@app.route("/api/admin/delete-version", methods=["POST"])
+def delete_version():
+    data = request.get_json(force=True)
+    model_key = data.get("model")
+    version = data.get("version")
 
-# ---------- DELETE MODEL DATA ----------
-@app.route("/api/admin/train/delete", methods=["POST"])
-def delete_model():
-    model_key = request.args.get("model")
-    paths = get_model_paths(model_key)
+    if not model_key or not version:
+        return jsonify({"success": False, "message": "Model and version required."}), 400
 
+    history = read_train_history()
+    removed = None
+    new_history = []
+    for entry in history:
+        if entry.get("model") == model_key and entry.get("version") == version:
+            removed = entry
+            continue
+        new_history.append(entry)
+
+    if not removed:
+        return jsonify({"success": False, "message": "Version not found."}), 404
+
+    folder_to_remove = os.path.join(UPLOADS_DIR, model_key, version)
     try:
-        if os.path.exists(paths["dir"]):
-            for f in os.listdir(paths["dir"]):
-                os.remove(os.path.join(paths["dir"], f))
-        return jsonify({"success": True})
-    except:
-        return jsonify({"success": False}), 500
+        if os.path.exists(folder_to_remove):
+            shutil.rmtree(folder_to_remove)
+    except Exception as e:
+        print("Failed to remove uploaded files:", e)
 
+    if removed.get("active", False):
+        promoted = None
+        for entry in new_history:
+            if entry.get("model") == model_key:
+                promoted = entry
+                break
+        if promoted:
+            promoted["active"] = True
 
-# ----------------- RUN -----------------
+    write_train_history(new_history)
+    resp = {"success": True, "message": "Deleted", "deleted": removed}
+    return jsonify(resp)
+
+# ---------- Admin: Get training info ----------
+@app.route("/api/admin/train/info", methods=["GET"])
+def get_training_info():
+    model = request.args.get("model", "gemini")
+    history = read_train_history()
+    for h in history:
+        if h.get("model") == model:
+            return jsonify(h)
+    return jsonify({"trained": False})
+
+# ---------- Admin: History ----------
+@app.route("/api/admin/train/history", methods=["GET"])
+def train_history():
+    return jsonify({"versions": read_train_history()})
+
+@app.route("/api/admin/check", methods=["GET"])
+def admin_check():
+    return jsonify({"logged_in": True})
+
+@app.route("/api/admin/login", methods=["POST"])
+def admin_login():
+    data = request.get_json(force=True)
+    username = data.get("username", "").strip()
+    password = data.get("password", "").strip()
+
+    ADMIN_USER = os.getenv("ADMIN_USER", "admin")
+    ADMIN_PASS = os.getenv("ADMIN_PASS", "msme@123")
+
+    if username == ADMIN_USER and password == ADMIN_PASS:
+        return jsonify({"success": True, "message": "Login successful"})
+    return jsonify({"success": False, "message": "Invalid username or password"}), 401
+
+@app.route("/")
+def serve_frontend():
+    if os.path.exists(app.static_folder):
+        return send_from_directory(app.static_folder, "index.html")
+    return "Chat backend running."
+
+# ----------------- Run -----------------
 if __name__ == "__main__":
-    print("🚀 Backend running with multi-model Ollama support")
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    print("Starting RAG backend (Gemini + Ollama)...")
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=os.getenv("FLASK_DEBUG", "True") == "True")

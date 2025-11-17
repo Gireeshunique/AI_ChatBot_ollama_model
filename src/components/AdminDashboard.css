@@ -1,0 +1,172 @@
+/* Admin Dashboard - MSME ONE styles (clean, soft purple) */
+
+:root{
+  --bg: #f6f6ff;
+  --card: #ffffff;
+  --muted: #8f8cc1;
+  --accent: #7b5cff;
+  --accent-600: #6c50ff;
+  --danger: #ff5252;
+}
+
+.admin-page {
+  background: var(--bg);
+  min-height: 100vh;
+  padding: 18px;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+}
+
+/* NAVBAR */
+.admin-navbar {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background: transparent;
+  padding: 10px 6px;
+  margin-bottom: 6px;
+}
+.logo-box { display:flex; align-items:center; gap:10px; }
+.logo-circle { width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg,var(--accent),var(--accent-600)); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; }
+.logo-title { font-weight:700; font-size:18px; color:#2b2b39; }
+.logo-sub { font-size:13px; color:var(--muted); }
+
+/* main content wrapper */
+.admin-main {
+  max-width:1100px;
+  margin: 6px auto 60px auto;
+  position: relative;
+}
+
+/* Back to Chat - top right of body (inside admin-main) */
+.back-chat-wrapper {
+  position: absolute;
+  right: 0;
+  top: -10px;
+}
+.back-chat-btn {
+  background: transparent;
+  border: 1px solid rgba(43,43,57,0.06);
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: #333;
+}
+
+/* Header */
+.admin-title { font-size:26px; margin: 18px 0 2px 0; color:#23232b; }
+.admin-sub { color:var(--muted); margin-bottom: 18px; }
+
+/* Tabs */
+.model-tabs { display:flex; gap:10px; margin-bottom: 18px; flex-wrap:wrap;}
+.tab-btn {
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #f2f2fb;
+  border: none;
+  cursor: pointer;
+}
+.tab-btn.active {
+  background: linear-gradient(90deg,var(--accent),var(--accent-600));
+  color: white;
+  box-shadow: 0 8px 20px rgba(123,92,255,0.12);
+}
+
+/* Card */
+.admin-card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 6px 30px rgba(20,20,40,0.03);
+}
+
+/* Form */
+.card-title { margin: 0 0 12px 0; }
+.label { display:block; margin-top:10px; color: #5a5a6e; font-size:13px; }
+.input, .textarea {
+  width:100%;
+  padding: 10px 12px;
+  margin-top:6px;
+  border-radius:10px;
+  border:1px solid rgba(20,20,40,0.04);
+  background: #fbfbff;
+  resize: vertical;
+}
+.textarea { min-height:80px; }
+
+/* training options */
+.training-options { display:flex; gap:18px; margin-top:12px; align-items:center; }
+
+/* upload button */
+.upload-btn {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: linear-gradient(90deg,var(--accent),var(--accent-600));
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(123,92,255,0.12);
+}
+
+/* progress bar */
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  background: #f2f2fb;
+  border-radius: 8px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+.progress-bar.small { width: 120px; height: 8px; }
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg,var(--accent),var(--accent-600));
+  border-radius: 8px;
+  width: 0%;
+  transition: width 300ms ease;
+}
+
+/* active version box */
+.version-box { background: #fbfbff; padding: 12px; border-radius: 10px; margin-top: 8px; }
+.active-pill { background: rgba(123,92,255,0.14); color: var(--accent); padding: 4px 8px; border-radius: 999px; margin-left:8px; font-weight:600; font-size:12px; }
+
+/* history list */
+.history-list { display:flex; flex-direction:column; gap:10px; margin-top: 10px; }
+.history-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  background:#fbfbff;
+  padding:12px;
+  border-radius:10px;
+}
+.history-meta { flex:1; }
+.vh-title { margin:0; font-size:16px; }
+.vh-date { margin:4px 0 0 0; color:var(--muted); font-size:13px; }
+.vh-desc { margin:8px 0 0 0; color:#666; font-size:13px; }
+
+/* history actions */
+.history-actions { display:flex; gap:8px; align-items:center; }
+.small-btn {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(20,20,40,0.06);
+  background: #fff;
+  cursor: pointer;
+}
+.small-btn.danger { background: #fff5f5; border-color: rgba(255,80,80,0.08); color: var(--danger); }
+
+/* refresh */
+.refresh-btn { padding: 8px 10px; border-radius:10px; background:#f4f4fb; border:none; cursor:pointer; }
+
+/* footer */
+.admin-footer { margin-top: 20px; text-align:center; color: var(--muted); font-size: 13px; }
+
+/* responsiveness */
+@media (max-width: 900px) {
+  .admin-main { padding: 8px; }
+  .back-chat-wrapper { position: static; text-align: right; margin-bottom: 8px; }
+  .history-row { flex-direction: column; align-items:flex-start; }
+}

@@ -22,7 +22,7 @@ body {
 
 .navbar {
   height: 65px;
-  background: linear-gradient(120deg, #ffffffaa, #f7f8ffdd);
+  background: linear-gradient(120deg, #766fd6aa, #f7f8ffdd);
   backdrop-filter: blur(10px);
   border-bottom: 0px solid rgba(180, 180, 210, 0.25);
 
@@ -41,7 +41,7 @@ body {
 .navbar-title {
   font-size: 23px;
   font-weight: 600;
-  background: linear-gradient(90deg, #6d5ffc, #927cff);
+  background: linear-gradient(90deg, #8379f6, #927cff);
   -webkit-background-clip: text;
   color: transparent;
 }
@@ -312,12 +312,6 @@ body {
   font-size: 14px;
   color: #333;
 }
-
-/* ==========================================================
-   Buttons — Better gradients, smoother UI
-========================================================== */
-
-
 /* ==========================================================
    Training Status Box — Cleaner modern look
 ========================================================== */
@@ -420,8 +414,8 @@ body {
 
 /* Header */
 .login-header h2 {
-  font-size: 26px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 780;
   background: linear-gradient(90deg, #6d5ffc, #a38dff);
   -webkit-background-clip: text;
   color: transparent;
@@ -460,12 +454,12 @@ body {
 /* Login Button */
 .login-btn {
   width: 100%;
-  padding: 14px;
+  padding: 13px;
   border-radius: 14px;
   border: none;
 
   background: linear-gradient(135deg, #786dff, #a58dff);
-  color: white;
+  color: rgb(255, 255, 255);
 
   font-size: 17px;
   font-weight: 600;
@@ -569,7 +563,7 @@ body {
 
 .brand-icon {
   background: linear-gradient(135deg, #8f7bff, #a38dff);
-  padding: 12px;
+  padding: 20px;
   font-size: 20px;
   border-radius: 14px;
   color: white;
@@ -602,26 +596,6 @@ body {
 .back-chat-btn:hover {
   transform: translateY(-2px);
   opacity: 0.9;
-}
-
-/* ============================================
-   MAIN CONTENT
-============================================ */
-.admin-main {
-  padding: 40px 22%;
-}
-
-.admin-title {
-  font-size: 32px;
-  font-weight: 700;
-  background: linear-gradient(90deg, #6c5ffc, #a38dff);
-  -webkit-background-clip: text;
-  color: transparent;
-}
-
-.admin-subtitle {
-  margin-bottom: 30px;
-  color: #6b6b7a;
 }
 
 /* ============================================
@@ -845,83 +819,283 @@ body {
   color: #2b2b38;
   min-height: 100vh;
 }
-
-/* ==========================================================
-   NAVBAR — Soft Glass, Rounded, Premium
-========================================================== */
-.admin-navbar {
-  height: 70px;
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(180, 180, 210, 0.25);
-
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 34px;
-
-  box-shadow: 0 6px 18px rgba(180, 180, 210, 0.25);
-  position: sticky;
-  top: 0;
-  z-index: 99;
+/* ============================
+   GLOBAL PAGE SETTINGS
+============================ */
+.admin-page {
+  background: #f4f3ff;
+  min-height: 100vh;
+  padding-bottom: 40px;
+  font-family: "Inter", sans-serif;
 }
 
-/* Logo Block */
+/* ============================
+   NAVBAR
+============================ */
+.admin-navbar {
+  width: 100%;
+  background: white;
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0px 3px 14px rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid #e9e6ff;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+/* Left logo block */
 .logo-box {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 .logo-circle {
   width: 48px;
   height: 48px;
-  border-radius: 14px;
+  background: #7c6cff;
+  border-radius: 12px;
+  color: white;
+  font-size: 24px;
   display: flex;
-  justify-content: center;
   align-items: center;
-
-  font-size: 22px;
-  color: #fff;
-
-  background: linear-gradient(135deg, #7d6cff, #a48aff);
-  box-shadow: 0 4px 18px rgba(140, 120, 255, 0.45);
+  justify-content: center;
 }
 
 .logo-title {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
-  background: linear-gradient(90deg, #6c5ffc, #927cff);
-  -webkit-background-clip: text;
-  color: transparent;
+  color: #3a366b;
 }
 
 .logo-sub {
   font-size: 12px;
-  margin-top: -4px;
-  color: #6f6f8c;
+  color: #908db5;
 }
 
-/* Back Button */
-.back-chat-btn {
-  padding: 10px 20px;
-  font-size: 14px;
-  border-radius: 14px;
-
+/* Back to Chat button */
+.back-btn {
+  background: #7d6cff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  color: white;
   border: none;
   cursor: pointer;
-  color: #fff;
-
-  background: linear-gradient(135deg, #786dff, #a58dff);
-  box-shadow: 0 6px 18px rgba(120, 110, 255, 0.32);
-
-  transition: 0.22s ease;
+  font-size: 14px;
+}
+.back-btn:hover {
+  background: #6c5cff;
 }
 
-.back-chat-btn:hover {
-  transform: translateY(-2px);
-  opacity: 0.92;
+/* ============================
+   MAIN CONTENT
+============================ */
+.admin-main {
+  width: 90%;
+  margin: 30px auto;
 }
+
+/* Titles */
+.admin-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #3d3870;
+  text-align: center;
+  margin-bottom: 5px;
+}
+
+.admin-sub {
+  text-align: center;
+  color: #807bb0;
+  margin-bottom: 30px;
+  font-size: 15px;
+}
+
+/* ============================
+   MODEL TABS
+============================ */
+.model-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.tab-btn {
+  background: #ebe9ff;
+  border: none;
+  padding: 10px 22px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: #4a437d;
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.tab-btn.active {
+  background: #7d6cff;
+  color: white;
+  box-shadow: 0 4px 12px rgba(125, 108, 255, 0.3);
+}
+
+/* ============================
+   ADMIN CARD
+============================ */
+.admin-card {
+  background: white;
+  padding: 24px;
+  border-radius: 18px;
+  box-shadow: 0px 4px 18px rgba(0, 0, 0, 0.08);
+  margin-bottom: 35px;
+}
+
+.card-title {
+  font-size: 20px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  color: #3d3870;
+}
+
+/* ============================
+   INPUTS
+============================ */
+.label {
+  font-size: 14px;
+  margin: 10px 0 4px 0;
+  font-weight: 500;
+  color: #4b457d;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #ddd9ff;
+  background: #f9f8ff;
+  font-size: 14px;
+  margin-bottom: 12px;
+  outline: none;
+}
+
+.textarea {
+  height: 90px;
+  resize: none;
+}
+
+/* ============================
+   TRAINING OPTIONS
+============================ */
+.training-options {
+  margin: 12px 0 16px 0;
+  display: flex;
+  gap: 20px;
+}
+.training-options label {
+  font-size: 14px;
+  cursor: pointer;
+  color: #4b457d;
+}
+
+/* ============================
+   TRAIN BUTTON
+============================ */
+.upload-btn {
+  background: #7d6cff;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.upload-btn:hover {
+  background: #6b5cff;
+}
+
+/* Progress bar */
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  background: #eceaff;
+  border-radius: 6px;
+  margin-top: 12px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #7d6cff;
+  border-radius: 6px;
+  transition: width 0.3s ease;
+}
+
+/* ============================
+   ACTIVE VERSION BOX
+============================ */
+.active-title {
+  margin-top: 20px;
+  margin-bottom: 8px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #3d3870;
+}
+
+.version-box {
+  background: #f8f7ff;
+  padding: 15px;
+  border-radius: 12px;
+  border: 1px solid #e5e1ff;
+}
+
+.version-box ul {
+  padding-left: 20px;
+}
+
+.no-version {
+  color: #8f8cc1;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+/* ============================
+   VERSION HISTORY
+============================ */
+.version-row {
+  background: #f7f6ff;
+  padding: 14px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  border: 1px solid #e5e1ff;
+}
+
+.vh-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #4a4579;
+}
+
+.vh-date {
+  color: #8b86bb;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+/* ============================
+   FOOTER
+============================ */
+.admin-footer {
+  margin-top: 20px;
+  text-align: center;
+  color: #8f8cc1;
+  font-size: 13px;
+}
+
+
 /* ==========================================================
    NAVBAR ICONS — Soft Glass Premium Buttons
 ========================================================== */
@@ -959,231 +1133,6 @@ body {
   opacity: 0.9;
 }
 
-/* Bell Icon — Soft Purple Highlight */
-.bell-icon {
-  color: #7d6cff;
-  background: rgba(125, 108, 255, 0.15);
-  border-color: rgba(125, 108, 255, 0.25);
-}
-
-.bell-icon:hover {
-  background: rgba(125, 108, 255, 0.25);
-  color: #6d5ffc;
-}
-
-/* Login Icon — Gradient Text Style */
-.login-icon {
-  font-size: 28px;
-
-  background-image: linear-gradient(135deg, #7d6cff, #a48aff);
-  -webkit-background-clip: text;
-  color: transparent;
-
-  padding: 8px 12px;
-}
-
-.login-icon:hover {
-  opacity: 0.85;
-  transform: translateY(-3px);
-}
-
-
-/* ==========================================================
-   MAIN WRAPPER
-========================================================== */
-.admin-main {
-  padding: 45px 20%;
-}
-
-.admin-title {
-  font-size: 34px;
-  font-weight: 700;
-  margin-bottom: 6px;
-
-  background: linear-gradient(90deg, #6c5ffc, #927cff);
-  -webkit-background-clip: text;
-  color: transparent;
-}
-
-.admin-subtitle {
-  color: #6b6b7a;
-  font-size: 15px;
-  margin-bottom: 35px;
-}
-
-/* ==========================================================
-   MODEL TRAINING CARD (Gemini / GPT / Claude)
-========================================================== */
-.admin-card {
-  background: rgba(255, 255, 255, 0.88);
-  border-radius: 22px;
-  padding: 32px;
-  margin-bottom: 45px;
-
-  border: 1px solid rgba(200, 200, 230, 0.22);
-  backdrop-filter: blur(14px);
-
-  box-shadow:
-    0 12px 28px rgba(180, 175, 220, 0.28),
-    0 2px 4px rgba(150, 150, 200, 0.15);
-
-  transition: 0.26s ease;
-}
-
-.admin-card:hover {
-  transform: translateY(-3px);
-  box-shadow:
-    0 16px 36px rgba(160, 150, 255, 0.28),
-    0 3px 6px rgba(150, 150, 200, 0.18);
-}
-
-.card-title {
-  font-size: 22px;
-  font-weight: 600;
-  margin-bottom: 18px;
-  color: #504f70;
-}
-
-/* ==========================================================
-   INPUT FIELDS — Soft, Rounded, Minimal
-========================================================== */
-.label {
-  margin-top: 14px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #4e4e65;
-}
-
-.input,
-textarea,
-input[type="file"] {
-  width: 100%;
-  margin-top: 8px;
-  padding: 14px;
-
-  border-radius: 14px;
-  background: #fafaff;
-  border: 1px solid #d7d7eb;
-
-  font-size: 15px;
-  color: #333;
-  transition: 0.2s;
-}
-
-.input:focus,
-textarea:focus {
-  border-color: #7c6cff;
-  box-shadow: 0 0 0 3px rgba(120, 110, 255, 0.25);
-  outline: none;
-}
-
-/* ==========================================================
-   TRAINING OPTIONS (RAG + LoRA Checkboxes)
-========================================================== */
-.training-options {
-  display: flex;
-  gap: 30px;
-  margin: 20px 0 25px;
-}
-
-.training-options label {
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* ==========================================================
-   TRAIN BUTTON
-========================================================== */
-.upload-train-btn {
-  width: 100%;
-  padding: 14px;
-  font-size: 16px;
-  font-weight: 600;
-  border-radius: 14px;
-
-  background: linear-gradient(135deg, #7d72ff, #a18aff);
-  color: #fff;
-  border: none;
-  cursor: pointer;
-
-  box-shadow: 0 6px 18px rgba(150, 135, 255, 0.32);
-  transition: 0.26s;
-}
-
-.upload-train-btn:hover {
-  opacity: 0.92;
-  transform: translateY(-2px);
-}
-
-.upload-train-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-/* ==========================================================
-   STATUS MESSAGE
-========================================================== */
-.status-msg {
-  margin-top: 14px;
-  padding: 12px 14px;
-
-  background: #f0edff;
-  border-left: 4px solid #7e74ff;
-
-  border-radius: 10px;
-  font-size: 14px;
-  color: #4c4470;
-
-  box-shadow: 0 3px 12px rgba(170, 170, 210, 0.2);
-}
-
-/* ==========================================================
-   ACTIVE VERSION SECTION
-========================================================== */
-.active-title {
-  margin-top: 28px;
-  font-size: 19px;
-  font-weight: 600;
-  color: #4d4d70;
-}
-
-.no-version {
-  opacity: 0.65;
-  margin-top: 6px;
-}
-
-.admin-card ul {
-  padding-left: 20px;
-  margin-top: 10px;
-}
-
-.admin-card li {
-  margin-bottom: 7px;
-  color: #525266;
-}
-
-/* DELETE BUTTON */
-.delete-btn {
-  margin-top: 14px;
-  padding: 10px 16px;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-  width: 180px;
-  font-size: 14px;
-
-  background: #ff5c5c;
-  color: white;
-
-  box-shadow: 0 4px 12px rgba(255, 80, 80, 0.35);
-  transition: 0.25s;
-}
-
-.delete-btn:hover {
-  background: #e64545;
-}
 
 /* ==========================================================
    FOOTER
@@ -1224,133 +1173,11 @@ textarea:focus {
     font-size: 18px;
   }
 }
-/* INPUT BAR */
-.chat-input {
-  background: #ffffffdd;
-  backdrop-filter: blur(8px);
-  padding: 16px 20%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-top: 1px solid rgba(180, 180, 210, 0.22);
-  box-shadow: 0 -2px 10px rgba(160, 160, 200, 0.15);
-}
 
-/* Input box */
-.chat-input input {
-  flex: 1;
-  height: 48px;
-  border-radius: 14px;
-  background: #fafaff;
-  border: 1px solid #d7d7eb;
-  padding: 0 14px;
-  font-size: 15px;
-}
 
-/* Mic button (Material Icon) */
-.mic-right {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px 10px;
-  display: flex;
-  align-items: center;
-}
 
-.mic-right .material-icons {
-  font-size: 28px;
-  color: #222;
-}
 
-.mic-right:hover .material-icons {
-  opacity: 0.7;
-}
 
-/* Recording blink + red mic */
-.mic-right.recording .material-icons {
-  color: #e74c3c;
-  animation: blinkMic 1s infinite;
-}
-
-@keyframes blinkMic {
-  0% { opacity: 1; }
-  50% { opacity: 0.3; }
-  100% { opacity: 1; }
-}
-
-/* Send button */
-.send-button {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #8578ff, #9c88ff);
-  border: none;
-  color: white;
-  font-size: 20px;
-  cursor: pointer;
-}
-
-.send-button:hover {
-  opacity: 0.9;
-}
-.chat-input {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-
-  background: #ffffffdd;
-  backdrop-filter: blur(8px);
-  padding: 20px;
-  border-top: 1px solid rgba(180, 180, 210, 0.22);
-  box-shadow: 0 -2px 10px rgba(160, 160, 200, 0.15);
-}
-
-/* Make input stretch wide like ChatGPT */
-.input-wrapper {
-  width: 70%;   /* ← adjust (60–80%) depending on your preference */
-  position: relative;
-}
-
-.input-wrapper input {
-  width: 100%;
-  height: 48px;
-  border-radius: 16px;
-  background: #fafaff;
-  border: 1px solid #d7d7eb;
-  padding: 0 30px 0 10px;
-  font-size: 16px;
-}
-
-/* Mic inside input */
-.mic-inside {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-.mic-inside .material-icons {
-  font-size: 26px;
-  color: #6d5ffc;
-}
-
-/* Send button aligned to the right */
-.send-button {
-  width: 52px;
-  height: 48px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #8578ff, #9c88ff);
-  border: none;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-}
 /* BOT ROW → left side icon */
 .bot-row {
   display: flex;
@@ -1399,35 +1226,7 @@ textarea:focus {
   color: #fff;
 }
 
-/* Mic inside input */
-.input-wrapper {
-  position: relative;
-  width: 70%;
-}
 
-.mic-inside {
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-.mic-inside .material-icons {
-  font-size: 26px;
-  color: #6d5ffc;
-}
-
-.mic-inside.recording .material-icons {
-  color: #ff4444;
-  animation: blinkMic 1s infinite;
-}
-
-@keyframes blinkMic {
-  50% { opacity: 0.3; }
-}
 
 /* Navbar icons */
 .bell-icon {
@@ -1633,4 +1432,433 @@ textarea:focus {
 
 .bot-icon:hover {
   transform: translateY(-3px);
+}
+/* ===========================
+   PAGE BACKGROUND
+=========================== */
+.admin-page {
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(to bottom, #f5f4ff, #eceaff);
+  padding-bottom: 80px;
+}
+
+/* ===========================
+   NAVBAR
+=========================== */
+.admin-navbar {
+  width: 100%;
+  padding: 14px 40px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  box-shadow: 0px 2px 15px rgba(0,0,0,0.05);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  color: #020202;
+}
+
+.logo-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-circle {
+  background: #958ef3;
+  padding: 10px;
+  border-radius: 14px;
+  font-size: 22px;
+}
+
+.logo-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #7b76da;
+}
+
+.logo-sub {
+  font-size: 13px;
+  color: #6e64f9;
+}
+
+.back-btn {
+  background: linear-gradient(135deg, #8f74fc, #a88dff);
+  padding: 10px 25px;
+  border-radius: 14px;
+  border: none;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.back-btn:hover {
+  transform: scale(1.04);
+  opacity: 0.92;
+}
+
+/* ===========================
+   MAIN CONTENT
+=========================== */
+.admin-main {
+  max-width: 1000px;
+  margin: 40px auto 0;
+  padding: 0 20px;
+  text-align: center;
+}
+
+.admin-title {
+  font-size: 36px;
+  font-weight: 900;
+  color: #6857ff;
+  margin-bottom: 8px;
+}
+
+.admin-sub {
+  color: #8b86bc;
+  margin-bottom: 30px;
+}
+
+/* ===========================
+   MODEL SWITCH TABS
+=========================== */
+.model-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 25px;
+}
+
+.tab-btn {
+  padding: 10px 22px;
+  border-radius: 16px;
+  border: 1px solid #d7d3ff;
+  background: #f7f5ff;
+  color: #736ddd;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.tab-btn:hover {
+  background: #ece9ff;
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, #7e63ff, #b18bff);
+  color: white;
+  border-color: transparent;
+}
+
+/* ===========================
+   MAIN WHITE CARD
+=========================== */
+.admin-card {
+  width: 100%;
+  background: white;
+  padding: 35px 40px;
+  border-radius: 28px;
+  box-shadow: 0px 12px 40px rgba(125, 100, 255, 0.15);
+  border: 1px solid rgba(150, 130, 255, 0.1);
+  text-align: left;
+  margin-bottom: 40px;
+}
+
+.card-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #6b54ff;
+  margin-bottom: 22px;
+}
+
+/* ===========================
+   FORM INPUTS
+=========================== */
+.label {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 5px;
+  color: #4d4a85;
+  display: block;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  background: #f9f8ff;
+  padding: 14px 15px;
+  border-radius: 14px;
+  border: 1px solid #ddd9ff;
+  outline: none;
+  font-size: 15px;
+  margin-bottom: 18px;
+  transition: 0.2s;
+}
+
+.input:focus,
+.textarea:focus {
+  border-color: #9e8cff;
+  box-shadow: 0px 0px 6px rgba(135, 110, 255, 0.3);
+}
+
+.textarea {
+  height: 110px;
+  resize: none;
+}
+/* ===========================
+   CHECKBOX OPTIONS
+=========================== */
+.training-options {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  margin-bottom: 20px;
+}
+
+.training-options label {
+  font-size: 15px;
+  font-weight: 500;
+  color: #5e5aaa;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ===========================
+   UPLOAD BUTTON
+=========================== */
+.upload-btn {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #8c66ff, #b08bff);
+  border: none;
+  border-radius: 18px;
+  color: white;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.upload-btn:hover {
+  transform: translateY(-2px);
+  opacity: 0.93;
+}
+
+/* ===========================
+   PROGRESS BAR
+=========================== */
+.progress-bar {
+  width: 100%;
+  height: 12px;
+  background: #eceaff;
+  border-radius: 12px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #7f63ff, #b588ff);
+  width: 0%;
+  transition: width 0.3s;
+}
+
+/* ===========================
+   ACTIVE VERSION SECTION
+=========================== */
+.active-title {
+  margin-top: 35px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #6b63ff;
+}
+
+.no-version {
+  font-size: 15px;
+  color: #9a96bf;
+}
+
+.version-box {
+  background: #f7f6ff;
+  padding: 15px 20px;
+  border-radius: 14px;
+  margin-top: 10px;
+  border: 1px solid #e0dcff;
+}
+
+/* ===========================
+   VERSION HISTORY
+=========================== */
+.version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f7f5ff;
+  padding: 18px 20px;
+  border-radius: 14px;
+  border: 1px solid #e0dbff;
+  margin-bottom: 12px;
+}
+
+.vh-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #554bff;
+}
+
+.vh-date {
+  font-size: 13px;
+  color: #8c85c7;
+}
+
+.download-btn {
+  background: #7a68ff;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.download-btn:hover {
+  opacity: 0.9;
+}
+
+/* ===========================
+   FOOTER
+=========================== */
+.admin-footer {
+  margin-top: 20px;
+  text-align: center;
+  color: #8f8cc1;
+  font-size: 13px;
+}
+/* PAGE BACKGROUND */
+.chat-container {
+  background: #f3f3ff;
+  min-height: 100vh;
+}
+
+/* NAV BAR */
+.navbar {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 18px 30px;
+  background: white;
+  border-radius: 0 0 18px 18px;
+  box-shadow: 0px 4px 16px rgba(0,0,0,0.08);
+  position: sticky;
+  top: 0;
+}
+
+.nav-logo-box { display: flex; align-items: center; gap: 12px; }
+.nav-logo-circle {
+  width: 42px;
+  height: 42px;
+  background: #7b5cff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+.nav-title { font-size: 18px; font-weight: 700; }
+.nav-sub { font-size: 12px; color: #8f8cc1; }
+
+.nav-links { display: flex; gap: 22px; }
+.nav-links a { text-decoration: none; color: #444; font-size: 16px; }
+
+.lang-btn {
+  background: #f0eaff;
+  padding: 8px 18px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+}
+
+/* CHAT WINDOW */
+.chat-window {
+  width: 90%;
+  margin: 20px auto;
+  min-height: 55vh;
+}
+/* COMBINED BOX */
+.combined-box {
+  width: 90%;
+  margin: 10px auto 40px auto;
+  background: white;
+  padding: 20px;
+  border-radius: 20px;
+  box-shadow: 0px 4px 16px rgba(0,0,0,0.08);
+}
+
+/* FEATURE BAR CENTERED */
+.feature-bar {
+  display: flex;
+  justify-content: center;   /* CENTER */
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.f-btn {
+  background: #eeeaff;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+}
+.f-btn.active {
+  background: #7b5cff;
+  color: white;
+}
+
+.panel-select {
+  padding: 10px;
+  border-radius: 10px;
+  background: #f5f3ff;
+  border: none;
+  min-width: 150px;
+}
+
+/* CENTERED INPUT BOX */
+.input-row {
+  display: flex;
+  justify-content: center; /* CENTER INPUT */
+  width: 100%;
+}
+
+.input-box {
+  width: 60%;
+  background: #f7f7ff;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+}
+
+.input-box input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 16px;
+}
+
+/* MIC + SEND INSIDE INPUT */
+.mic-btn,
+.send-inside {
+  cursor: pointer;
+  font-size: 24px;
+  color: #7b5cff;
+  margin-left: 10px;
 }
