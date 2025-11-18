@@ -6,7 +6,7 @@ import AdminLogin from "./components/AdminLogin";
 import AdminDashboard from "./components/AdminDashboard";
 import Services from "./components/Services";   // ✅ NEW
 import Contact from "./components/Contact";     // ✅ NEW
-
+import AdminChatLogs from "./components/AdminChatLogs";
 import axios from "axios";
 axios.defaults.withCredentials = true;
 
@@ -27,6 +27,7 @@ function App() {
         {/* Admin Pages */}
         <Route path="/admin" element={<AdminLogin />} />
         <Route path="/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/logs" element={<AdminChatLogs />}/>
 
       </Routes>
     </Router>

@@ -8,7 +8,6 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
-import google.generativeai as genai
 import requests
 import numpy as np
 import faiss
@@ -17,6 +16,7 @@ import threading
 import whisper
 import shutil
 import tempfile
+import zipfile
 
 # ----------------- Env & Paths -----------------
 load_dotenv()
@@ -32,18 +32,6 @@ TRAIN_INFO_PATH = os.path.join(DATA_DIR, "train_info_versions.json")
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
-
-# ----------------- Gemini API -----------------
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    try:
-        genai.configure(api_key=GEMINI_API_KEY)
-    except Exception as e:
-        print("Warning: genai.configure() failed:", e)
-
-# default model name and gen config
-MODEL_NAME = os.getenv("GEMINI_MODEL_NAME", "gemini-2.5-flash")
-GEN_CONFIG = {"temperature": 0.2, "max_output_tokens": 800, "top_p": 0.95}
 
 # ----------------- Flask app -----------------
 app = Flask(__name__, static_folder="../frontend/build", static_url_path="/")
@@ -68,7 +56,6 @@ def load_index_and_models():
         try:
             print("Loading FAISS index and metadata...")
             index = faiss.read_index(INDEX_PATH)
-            # optional: check dimension compatibility
             metadata = json.load(open(METADATA_PATH, "r", encoding="utf-8"))
             print("Index & metadata loaded.")
         except Exception as e:
@@ -86,14 +73,12 @@ def load_whisper():
     global whisper_model
     try:
         print("Loading Whisper model (background)...")
-        # If you have GPU, change device to "cuda"
         whisper_model = whisper.load_model("small", device="cpu")
         print("Whisper loaded.")
     except Exception as e:
         print("Whisper load error:", e)
         whisper_model = None
 
-# Start background thread to warm whisper (non-blocking)
 threading.Thread(target=load_whisper, daemon=True).start()
 
 # ----------------- Utilities -----------------
@@ -112,18 +97,15 @@ def retrieve_chunks(query, top_k=4):
         return []
     try:
         q_emb = embed_model.encode([query], convert_to_numpy=True)
-        # normalize embeddings in-place (faiss helper)
         try:
             faiss.normalize_L2(q_emb)
         except Exception:
-            # fallback normalization
             q_emb = q_emb / (np.linalg.norm(q_emb, axis=1, keepdims=True) + 1e-10)
         D, I = index.search(q_emb.astype("float32"), top_k)
         results = []
         for idx in I[0]:
             if idx < 0 or idx >= len(metadata):
                 continue
-            # metadata expected to be list of dicts with "text" key
             results.append(metadata[idx].get("text", ""))
         return results
     except Exception as e:
@@ -132,50 +114,10 @@ def retrieve_chunks(query, top_k=4):
 
 def make_context_text(chunks):
     joined = "\n\n".join(chunks)
-    # keep context to a reasonable size for local models / Gemini
     return joined[:3500]
-
-# ----------------- Gemini call -----------------
-def call_gemini(prompt, lang="auto"):
-    if not GEMINI_API_KEY:
-        return "⚠️ Gemini API key not set."
-    try:
-        system_prompt = ""
-        if lang == "te":
-            system_prompt = "మీరు తెలుగులో సమగ్ర, సహజమైన మరియు సరళమైన సమాధానం ఇవ్వాలి."
-        elif lang == "en":
-            system_prompt = "You are an assistant. Reply in English clearly and fully."
-        else:
-            system_prompt = "You are a multilingual assistant. Detect the language and reply in the same language."
-
-        full = f"{system_prompt}\n\nContext:\n{prompt}\n\nAnswer the user's question using the context above if relevant."
-        # Using the available genai API; keep this try/catch since API surface may differ
-        model = genai.GenerativeModel(MODEL_NAME, generation_config=GEN_CONFIG)
-        resp = model.generate_content(full)
-        # resp.text is expected; fallback if not present
-        if resp is None:
-            return "⚠️ No response from Gemini."
-        text = getattr(resp, "text", None)
-        if text:
-            return text.strip()
-        # some SDKs return dict-like
-        try:
-            j = resp if isinstance(resp, dict) else resp.to_dict()
-            if "candidates" in j:
-                # heuristic: join candidate texts
-                return " ".join(c.get("content", "") for c in j.get("candidates", [])).strip()
-        except Exception:
-            pass
-        return "⚠️ No response from Gemini."
-    except Exception as e:
-        print("Gemini error:", e)
-        return "⚠️ Gemini API error."
 
 # ----------------- Ollama generic call -----------------
 def call_ollama_generic(model_name, context_text, question, timeout=40):
-    """
-    model_name - exact model string to send to Ollama, e.g. "gemma:2b" or "llama3.1:8b"
-    """
     endpoint = "http://localhost:11434/api/generate"
     full_prompt = (
         "Use the context below to answer the question. If the answer is not in the context, answer concisely.\n\n"
@@ -191,7 +133,6 @@ def call_ollama_generic(model_name, context_text, question, timeout=40):
             j = r.json()
         except ValueError:
             return r.text or "⚠️ Ollama returned non-JSON response."
-        # Prefer common keys
         if isinstance(j, dict):
             if "response" in j and isinstance(j["response"], str):
                 return j["response"].strip()
@@ -200,7 +141,6 @@ def call_ollama_generic(model_name, context_text, question, timeout=40):
                 for key in ("text", "content", "message", "output"):
                     if key in first and isinstance(first[key], str):
                         return first[key].strip()
-        # fallback: stringify json
         return str(j)[:2000]
     except requests.exceptions.ConnectionError:
         return "⚠️ Ollama is not running on localhost:11434. Start it with: ollama serve"
@@ -248,34 +188,25 @@ def chat():
     data = request.get_json(force=True)
     message = data.get("message", "").strip()
     lang = data.get("lang", "auto")
-    model_choice = data.get("model", "gemini")  # examples: "gemini", "ollama:gemma", "ollama:llama3"
+    model_choice = data.get("model", "ollama:gemma2")  
     top_k = int(data.get("top_k", 4))
 
     if not message:
         return jsonify({"reply": "⚠️ Please enter a message."}), 400
 
-    # translate for retrieval if Telugu (keep search in English)
     query_for_search = message if lang != "te" else translate_text(message, "en")
-
-    # retrieve RAG chunks
     chunks = retrieve_chunks(query_for_search, top_k=top_k)
     context_text = make_context_text(chunks)
 
     answer = "⚠️ Unknown model selection."
-    # Decide which model to call
-    if model_choice == "gemini":
-        prompt = f"Context:\n{context_text}\n\nUser question:\n{message}"
-        answer = call_gemini(prompt, lang)
-    elif model_choice.startswith("ollama"):
-        # expected format "ollama:gemma" or "ollama:llama3"
+    if model_choice.startswith("ollama"):
         parts = model_choice.split(":", 1)
         if len(parts) == 2:
             alias = parts[1]
-            if alias == "gemma":
-                # unified model name
-                answer = call_ollama_generic("gemma:2b", context_text, message)
-            elif alias == "llama3":
-                answer = call_ollama_generic("llama3.1:8b", context_text, message)
+            if alias == "gemma2":
+                answer = call_ollama_generic("gemma2:2b", context_text, message)
+            elif alias == "phi3":
+                answer = call_ollama_generic("phi3:3.8b", context_text, message)
             else:
                 answer = f"⚠️ Unknown Ollama model alias: {alias}"
         else:
@@ -289,26 +220,18 @@ def chat():
 # ---------- Transcription endpoint (Whisper) ----------
 @app.route("/api/transcribe", methods=["POST"])
 def transcribe_audio():
-    """
-    Expects form-data with 'file' (audio blob) and optional 'lang' (en/te/auto) and model, feature, version.
-    Returns: { text: <transcribed text>, reply: <bot reply> }
-    """
     file = request.files.get("file")
     lang = request.form.get("lang", "en")
-    model_choice = request.form.get("model", "gemini")
-    feature = request.form.get("feature", "rag")
-    version = request.form.get("version", "default")
+    model_choice = request.form.get("model", "ollama:gemma2")
 
     if file is None:
         return jsonify({"error": "No audio file uploaded."}), 400
 
-    # save temp file
     tmpdir = tempfile.mkdtemp()
     try:
         tmp_path = os.path.join(tmpdir, "upload.wav")
         file.save(tmp_path)
 
-        # transcribe using whisper if available
         text = ""
         if whisper_model is not None:
             try:
@@ -318,25 +241,20 @@ def transcribe_audio():
                 print("Whisper transcription error:", e)
                 text = ""
         else:
-            # fallback: no whisper -> return an error text
             return jsonify({"error": "Transcription model not available."}), 503
 
-        # now reuse chat logic to generate reply
-        # translate for retrieval if Telugu
         query_for_search = text if lang != "te" else translate_text(text, "en")
         chunks = retrieve_chunks(query_for_search, top_k=4)
         context_text = make_context_text(chunks)
 
-        if model_choice == "gemini":
-            prompt = f"Context:\n{context_text}\n\nUser question:\n{text}"
-            reply = call_gemini(prompt, lang)
-        elif model_choice.startswith("ollama"):
+        reply = "⚠️ Unknown model selection."
+        if model_choice.startswith("ollama"):
             parts = model_choice.split(":", 1)
             alias = parts[1] if len(parts) > 1 else ""
-            if alias == "gemma":
-                reply = call_ollama_generic("gemma:2b", context_text, text)
-            elif alias == "llama3":
-                reply = call_ollama_generic("llama3.1:8b", context_text, text)
+            if alias == "gemma2":
+                reply = call_ollama_generic("gemma2:2b", context_text, text)
+            elif alias == "phi3":
+                reply = call_ollama_generic("phi3:3.8b", context_text, text)
             else:
                 reply = f"⚠️ Unknown Ollama model alias: {alias}"
         else:
@@ -350,7 +268,7 @@ def transcribe_audio():
         except Exception:
             pass
 
-# ---------- Admin: Train (upload PDFs) ----------
+# ---------- Admin routes ----------
 @app.route("/api/admin/train", methods=["POST"])
 def admin_train():
     files = request.files.getlist("files")
@@ -390,7 +308,6 @@ def admin_train():
     if train_rag:
         try:
             tmp_zip = os.path.join(DATA_DIR, f"tmp_uploads_{int(time.time())}.zip")
-            import zipfile
             with zipfile.ZipFile(tmp_zip, "w") as z:
                 for root, _, files_walk in os.walk(UPLOADS_DIR):
                     for fname in files_walk:
@@ -398,9 +315,7 @@ def admin_train():
                             z.write(os.path.join(root, fname), arcname=fname)
             env = os.environ.copy()
             env["ZIP_PATH_OVERRIDE"] = tmp_zip
-            # run ingestion script; don't crash on non-zero exit
             subprocess.run([sys.executable, os.path.join(BACKEND_ROOT, "ingest_build_index.py")], env=env, check=False)
-            # reload index/models after ingestion
             load_index_and_models()
             try:
                 os.remove(tmp_zip)
@@ -412,7 +327,6 @@ def admin_train():
 
     return jsonify({"message": f"Trained on {len(saved_files)} PDFs.", "train_info": train_info})
 
-# ---------- Admin: Activate version ----------
 @app.route("/api/admin/activate", methods=["POST"])
 def activate_version():
     data = request.get_json(force=True)
@@ -437,7 +351,6 @@ def activate_version():
     write_train_history(history)
     return jsonify({"success": True, "message": "Activated", "version": version})
 
-# ---------- Admin: Delete version ----------
 @app.route("/api/admin/delete-version", methods=["POST"])
 def delete_version():
     data = request.get_json(force=True)
@@ -479,17 +392,15 @@ def delete_version():
     resp = {"success": True, "message": "Deleted", "deleted": removed}
     return jsonify(resp)
 
-# ---------- Admin: Get training info ----------
 @app.route("/api/admin/train/info", methods=["GET"])
 def get_training_info():
-    model = request.args.get("model", "gemini")
+    model = request.args.get("model", "ollama")
     history = read_train_history()
     for h in history:
         if h.get("model") == model:
             return jsonify(h)
     return jsonify({"trained": False})
 
-# ---------- Admin: History ----------
 @app.route("/api/admin/train/history", methods=["GET"])
 def train_history():
     return jsonify({"versions": read_train_history()})
@@ -519,5 +430,5 @@ def serve_frontend():
 
 # ----------------- Run -----------------
 if __name__ == "__main__":
-    print("Starting RAG backend (Gemini + Ollama)...")
+    print("Starting RAG backend (Ollama) with gemma2 and phi3 models...")
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=os.getenv("FLASK_DEBUG", "True") == "True")

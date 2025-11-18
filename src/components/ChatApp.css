@@ -1862,3 +1862,22 @@ body {
   color: #7b5cff;
   margin-left: 10px;
 }
+.feedback-label {
+  margin-top: 5px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.feedback-text {
+  font-size: 14px;
+}
+
+.feedback-label.good {
+  color: green;
+}
+
+.feedback-label.bad {
+  color: red;
+}

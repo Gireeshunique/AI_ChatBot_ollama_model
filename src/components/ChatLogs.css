@@ -1,0 +1,29 @@
+/* ChatLogs.css */
+.chatlogs-page { padding: 28px; }
+.top-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.stats-box { display:flex; gap:16px; margin-bottom:18px; }
+.stat-card { background:#fff; padding:14px 18px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.06); text-align:center; min-width:120px; }
+.stat-card h2 { margin:0; font-size:20px; }
+.stat-card p { margin:6px 0 0; color:#666; font-size:13px; }
+.stat-card.green { background:#e8fff0; }
+.stat-card.red { background:#fff0f0; }
+.stat-card.gray { background:#f8f9fb; }
+
+.filters-row { display:flex; gap:12px; margin-bottom:18px; align-items:center; }
+.filters-row select { padding:8px 10px; border-radius:8px; border:1px solid #ddd; }
+
+.logs-table { width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.04); }
+.logs-table th, .logs-table td { padding:12px 14px; border-bottom:1px solid #f1f1f1; text-align:left; font-size:14px; }
+.logs-table thead { background:#fafafa; }
+.logs-table tbody tr:hover { background:#fbfbfb; }
+
+.small-btn { margin-right:8px; padding:6px 8px; border-radius:6px; border:1px solid #ddd; background:#fff; cursor:pointer; }
+.small-btn.danger { background:#ffeef0; border-color:#ffdddd; color:#b40000; }
+.small-btn.primary { background:#e8f0fe; border-color:#c6d9f1; color:#2b6cff; }
+.small-btn.feedback-positive { background:#e8fff0; border-color:#c6f1d9; color:#2bcf6c; }
+.small-btn.clear-fb { background:#f8f9fb; border-color:#e1e5ea; color:#666; }
+
+.refresh-btn { padding:8px 12px; border-radius:8px; border: none; cursor:pointer; background:#686fdf; color:#fff; }
+.refresh-btn:hover { background:#1a5aff; }
+
+.back-btn{padding:8px 0px; border-radius:8px; border: none; cursor:pointer; background:#686fdf; color:#fff; } 

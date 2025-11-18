@@ -3,28 +3,38 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "./AdminDashboard.css";
 
+const textContent = {
+  en: {
+    home: "Home",
+    services: "Services",
+    contact: "Contact",
+    admin: "Admin",
+    chatLogs: "Chat Logs"
+  },
+};
+const language = "en"; // Placeholder for language state
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  // ✔ Added LLaMA 3.1 Model here
+  // Updated model list
   const modelList = {
-    gemini: "Gemini-2.5-flash",
-    ollama: "Ollama (Gemma 2B)",
-    llama3: "Ollama (LLaMA 3.1 - 8B)"
+    gemma2: "Gemma 2B",
+    phi3: "Phi 3.1 3B"
   };
 
-  const [activeModel, setActiveModel] = useState("gemini");
+  const [activeModel, setActiveModel] = useState("gemma2");
 
   const [models, setModels] = useState({
-    gemini: { version: "", description: "", files: [], rag: true, lora: false, info: null, loading: false, progress: 0 },
-    ollama: { version: "", description: "", files: [], rag: true, lora: false, info: null, loading: false, progress: 0 },
-    llama3: { version: "", description: "", files: [], rag: true, lora: false, info: null, loading: false, progress: 0 },
+    gemma2: { version: "", description: "", files: [], rag: true, lora: false, info: null, loading: false, progress: 0 },
+    phi3: { version: "", description: "", files: [], rag: true, lora: false, info: null, loading: false, progress: 0 },
   });
 
   const [versionHistory, setVersionHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     async function init() {
       try {
         const login = await axios.get("/api/admin/check");
@@ -47,8 +57,9 @@ export default function AdminDashboard() {
         console.error("Init error", err);
       }
     }
-    init();
-  }, []);
+    if (isMounted) init();
+    return () => { isMounted = false; };
+  }, [navigate]);
 
   const refreshHistory = async () => {
     setLoadingHistory(true);
@@ -117,9 +128,7 @@ export default function AdminDashboard() {
   };
 
   const activateVersion = async (modelKey, version) => {
-    if (!window.confirm(`Activate version "${version}" for model ${modelKey}?`))
-      return;
-
+    if (!window.confirm(`Activate version "${version}" for model ${modelKey}?`)) return;
     try {
       const res = await axios.post("/api/admin/activate", { model: modelKey, version });
       if (res.data?.success) {
@@ -128,15 +137,11 @@ export default function AdminDashboard() {
         updateField(modelKey, "info", info.data && info.data.trained !== false ? info.data : null);
         alert("Activated.");
       } else alert(res.data?.message);
-    } catch (e) {
-      alert("Activation failed.");
-    }
+    } catch (e) { alert("Activation failed."); }
   };
 
   const deleteVersion = async (modelKey, version) => {
-    if (!window.confirm(`Delete version "${version}" for model ${modelKey}?`))
-      return;
-
+    if (!window.confirm(`Delete version "${version}" for model ${modelKey}?`)) return;
     try {
       const res = await axios.post("/api/admin/delete-version", { model: modelKey, version });
       if (res.data?.success) {
@@ -145,27 +150,36 @@ export default function AdminDashboard() {
         updateField(modelKey, "info", info.data && info.data.trained !== false ? info.data : null);
         alert("Deleted.");
       } else alert(res.data?.message);
-    } catch (e) {
-      alert("Delete failed.");
-    }
+    } catch (e) { alert("Delete failed."); }
   };
 
   const modelLabel = key => modelList[key] || key;
 
   return (
     <div className="admin-page">
-      <nav className="admin-navbar">
-        <div className="logo-box">
-          <div className="logo-circle">💼</div>
-          <div>
-            <div className="logo-title">MSME ONE</div>
-            <div className="logo-sub">Support Center</div>
+      <nav className="navbar">
+        <div className="navbar-left">
+          <div className="navbar-title logo-box">
+            <div className="logo-circle">💼</div>
+            <div>
+              <div className="logo-title">MSME ONE</div>
+              <div className="logo-sub">Support Center</div>
+            </div>
           </div>
         </div>
+
+        <div className="nav-links">
+          <a href="/">{textContent[language].home}</a>
+          <a href="/services">{textContent[language].services}</a>
+          <a href="/contact">{textContent[language].contact}</a>
+          <a href="/admin" className="active-nav">{textContent[language].admin}</a>
+          <a href="/admin/logs">{textContent[language].chatLogs}</a>
+        </div>
+
+        <div className="nav-user-logo">👤</div>
       </nav>
 
       <div className="admin-main">
-
         <div className="back-chat-wrapper">
           <button className="back-chat-btn" onClick={() => navigate("/")}>🔙 Back to Chat</button>
         </div>
@@ -297,7 +311,6 @@ export default function AdminDashboard() {
         <footer className="admin-footer">
           © 2025 MSME ONE — All Rights Reserved.
         </footer>
-
       </div>
     </div>
   );

@@ -11,7 +11,7 @@ function ChatApp() {
 
   // feature states
   const [feature, setFeature] = useState("rag");
-  const [model, setModel] = useState("gemini");
+  const [model, setModel] = useState("ollama:gemma2");
   const [version, setVersion] = useState("default");
   const [language, setLanguage] = useState("en");
 
@@ -165,7 +165,7 @@ function ChatApp() {
             className={`f-btn ${feature === "lora" ? "active" : ""}`}
             onClick={() => setFeature("lora")}
           >
-            Gemini-2.5 (LoRA)
+            Gemma 2 (LoRA)
           </button>
           <button
             className={`f-btn ${feature === "rag" ? "active" : ""}`}
@@ -175,9 +175,8 @@ function ChatApp() {
           </button>
 
           <select className="panel-select" value={model} onChange={(e) => setModel(e.target.value)}>
-            <option value="gemini">Gemini 2.5 Flash</option>
-            <option value="ollama:gemma">Ollama - Gemma 2B</option>
-            <option value="ollama:llama3">Ollama - Llama 3</option>
+            <option value="ollama:gemma2">Ollama Gemma2:2B</option>
+            <option value="phi3.1:3b">Phi3.1:3B</option>
           </select>
 
           <select className="panel-select" value={version} onChange={(e) => setVersion(e.target.value)}>
