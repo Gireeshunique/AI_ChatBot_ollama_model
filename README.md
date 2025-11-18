@@ -1,70 +1,89 @@
-# Getting Started with Create React App
+# 🚀 Full-Stack Project: React + Flask (MSME ONE Assistant)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This project is a full-stack web application built with a React.js frontend and a Flask (Python) backend.
+It supports English and Telugu languages, voice-to-text queries using Whisper, and semantic search over uploaded documents using FAISS and Sentence Transformers.
 
-## Available Scripts
 
-In the project directory, you can run:
+## 🧩 Tech Stack
+Layer	Technology	Purpose
+Frontend	React.js, Axios, Vite	Chat UI, voice recording, multilingual support
+Backend	Flask, Flask-CORS	REST APIs for chat, file upload, and transcription
+ML Models	SentenceTransformer, Whisper, FAISS	Text embeddings, speech-to-text, semantic search
+Translation	Deep Translator	Telugu ↔ English conversion
+Data Format	JSON, NumPy, PDF (training files)	Store embeddings, metadata, logs
 
-### `npm start`
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## 📂 Folder Structure
+project/
+├── backend/
+│  
+├── app.py               # Flask backend with chat + voice endpoints
+│ 
+├── ingest_dataset.py    # Embedding + dataset preparation
+│ 
+├── data/
+│ 
+│   ├── embeddings.npy
+│ 
+│   ├── metadata.json
+│ 
+│   └── chat_logs.json
+│ 
+└── requirements.txt
+│
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+├── frontend/
+│ 
+├── src/
+│  
+│   ├── App.jsx
+│  
+│   ├── ChatApp.jsx
+│ 
+│   ├── ChatMessage.jsx
+│  
+│   └── index.js
+│ 
+├── public/
+│ 
+│   └── index.html
+│ 
+├── package.json
+│ 
+└── vite.config.js
+│
 
-### `npm test`
+└── README.md
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
 
-### `npm run build`
+## ⚙️Backend Setup (Flask + Python)
+1. Create a virtual environment
+cd backend
+python -m venv myenv
+myenv\Scripts\activate  # Windows
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+2. Install dependencies
+pip install flask flask-cors faiss-cpu sentence-transformers openai-whisper deep-translator PyPDF2 torch numpy
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+3. Prepare data embeddings
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+⚙️Before starting the app, run the dataset ingestion script:
 
-### `npm run eject`
+python ingest_dataset.py
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+4. Run Flask server
+python app.py
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+The backend runs at http://localhost:5000
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## 💻 Frontend Setup (React + Vite)
+1. Install Node modules
+cd frontend
+npm install
 
-## Learn More
+2. Run the development server
+npm run dev
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
 
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Frontend runs at http://localhost:5173
