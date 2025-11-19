@@ -9,14 +9,15 @@ function ChatApp() {
   const [input, setInput] = useState("");
   const [recording, setRecording] = useState(false);
 
-  // feature states
+  // Feature States
   const [feature, setFeature] = useState("rag");
-  const [model, setModel] = useState("ollama:gemma2");
+  const [model, setModel] = useState("gemma2:2b");    // FIXED MODEL NAME
   const [version, setVersion] = useState("default");
   const [language, setLanguage] = useState("en");
 
   const recorderRef = useRef(null);
 
+  // Static Text Content (Does Not Change → ESLint Ignore Required)
   const textContent = {
     en: {
       greeting: "Hello! I'm MSME ONE Assistant. You can type or speak to ask your question.",
@@ -36,15 +37,23 @@ function ChatApp() {
     },
   };
 
+  // ============================
+  // INITIAL GREETING
+  // ============================
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setMessages([{ sender: "bot", text: textContent[language].greeting }]);
   }, [language]);
 
+  // ============================
+  // SEND TEXT MESSAGE
+  // ============================
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    setMessages(prev => [...prev, { sender: "user", text: input }]);
     const userMsg = input;
+    setMessages(prev => [...prev, { sender: "user", text: userMsg }]);
     setInput("");
 
     try {
@@ -54,15 +63,26 @@ function ChatApp() {
         model,
         feature,
         version,
+        user_id: "user-123"
       });
 
-      setMessages(prev => [...prev, { sender: "bot", text: res.data.reply }]);
+      setMessages(prev => [
+        ...prev,
+        {
+          sender: "bot",
+          text: res.data.reply,
+          ts: res.data.ts
+        }
+      ]);
     } catch (err) {
       console.error("sendMessage error:", err);
       setMessages(prev => [...prev, { sender: "bot", text: "⚠ Server not reachable." }]);
     }
   };
 
+  // ============================
+  // START VOICE RECORDING
+  // ============================
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -70,30 +90,34 @@ function ChatApp() {
       recorderRef.current = recorder;
 
       const chunks = [];
-      recorder.ondataavailable = e => chunks.push(e.data);
+
+      recorder.ondataavailable = (e) => chunks.push(e.data);
 
       recorder.onstop = async () => {
         const audioBlob = new Blob(chunks, { type: "audio/wav" });
         const formData = new FormData();
+
         formData.append("file", audioBlob);
         formData.append("lang", language);
         formData.append("model", model);
         formData.append("feature", feature);
         formData.append("version", version);
+        formData.append("user_id", "user-123");
 
         try {
           const res = await axios.post("http://localhost:5000/api/transcribe", formData, {
-            headers: { "Content-Type": "multipart/form-data" }
+            headers: { "Content-Type": "multipart/form-data" },
           });
 
-          const transcribed = res.data.text || "";
-          const reply = res.data.reply || "";
+          const transcribed = res.data.text || "(voice)";
+          const reply = res.data.reply || "No reply.";
 
           setMessages(prev => [
             ...prev,
-            { sender: "user", text: transcribed || "(voice)"},
-            { sender: "bot", text: reply || "No reply." },
+            { sender: "user", text: transcribed },
+            { sender: "bot", text: reply, ts: res.data.ts }
           ]);
+
         } catch (err) {
           console.error("transcribe error:", err);
           alert("Voice processing failed.");
@@ -102,22 +126,22 @@ function ChatApp() {
 
       recorder.start();
       setRecording(true);
-      // stop automatically after 4.5s
+
+      // auto stop after 4.5s
       setTimeout(() => {
-        if (recorder.state !== "inactive") {
-          recorder.stop();
-        }
+        if (recorder.state !== "inactive") recorder.stop();
         setRecording(false);
       }, 4500);
 
     } catch (err) {
-      console.error("getUserMedia error:", err);
+      console.error("Microphone Error:", err);
       alert("Microphone access denied.");
     }
   };
 
   return (
     <div className="chat-container">
+
       {/* ---------- NAVBAR ---------- */}
       <nav className="navbar">
         <div className="navbar-left">
@@ -139,7 +163,7 @@ function ChatApp() {
 
         <button
           className="lang-btn"
-          onClick={() => setLanguage(p => (p === "en" ? "te" : "en"))}
+          onClick={() => setLanguage((prev) => (prev === "en" ? "te" : "en"))}
         >
           🌐 {language === "en" ? "తెలుగు" : "English"}
         </button>
@@ -150,23 +174,30 @@ function ChatApp() {
         </div>
       </nav>
 
-      {/* CHAT MESSAGES */}
+      {/* ---------- CHAT MESSAGES ---------- */}
       <div className="chat-window">
         {messages.map((msg, i) => (
-          <ChatMessage key={i} sender={msg.sender} text={msg.text} />
+          <ChatMessage
+            key={i}
+            sender={msg.sender}
+            text={msg.text}
+            ts={msg.ts}    // FEEDBACK SUPPORT
+          />
         ))}
       </div>
 
-      {/* COMBINED BOX */}
+      {/* ---------- INPUT SECTION ---------- */}
       <div className="combined-box">
-        {/* FEATURE BAR */}
+        {/* Model + Feature Panel */}
         <div className="feature-bar">
+
           <button
             className={`f-btn ${feature === "lora" ? "active" : ""}`}
             onClick={() => setFeature("lora")}
           >
             Gemma 2 (LoRA)
           </button>
+
           <button
             className={`f-btn ${feature === "rag" ? "active" : ""}`}
             onClick={() => setFeature("rag")}
@@ -174,24 +205,37 @@ function ChatApp() {
             Accurate (RAG)
           </button>
 
-          <select className="panel-select" value={model} onChange={(e) => setModel(e.target.value)}>
-            <option value="ollama:gemma2">Ollama Gemma2:2B</option>
-            <option value="phi3.1:3b">Phi3.1:3B</option>
+          {/* FIXED MODEL NAMES */}
+          <select
+            className="panel-select"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+          >
+            <option value="gemma2:2b">Gemma 2 (2B)</option>
+            <option value="phi3:3.8b">Phi-3 (3.8B)</option>
           </select>
 
-          <select className="panel-select" value={version} onChange={(e) => setVersion(e.target.value)}>
+          <select
+            className="panel-select"
+            value={version}
+            onChange={(e) => setVersion(e.target.value)}
+          >
             <option value="default">Default Version</option>
             <option value="original">Original 46 PDFs</option>
             <option value="ramp">RAMP Program</option>
           </select>
 
-          <select className="panel-select" value={language} onChange={(e) => setLanguage(e.target.value)}>
+          <select
+            className="panel-select"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+          >
             <option value="en">English</option>
             <option value="te">Telugu</option>
           </select>
         </div>
 
-        {/* INPUT BOX WITH MIC + SEND INSIDE */}
+        {/* INPUT BOX */}
         <div className="input-row">
           <div className="input-box">
             <input
@@ -202,13 +246,23 @@ function ChatApp() {
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             />
 
-            <span className={`material-icons mic-btn ${recording ? "recording" : ""}`} onClick={startRecording}>
+            <span
+              className={`material-icons mic-btn ${recording ? "recording" : ""}`}
+              onClick={startRecording}
+            >
               {recording ? "mic_off" : "mic"}
             </span>
-            <span className="material-icons send-inside" onClick={sendMessage}>send</span>
+
+            <span
+              className="material-icons send-inside"
+              onClick={sendMessage}
+            >
+              send
+            </span>
           </div>
         </div>
       </div>
+
     </div>
   );
 }

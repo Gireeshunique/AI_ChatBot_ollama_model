@@ -1,0 +1,104 @@
+{
+  "seq": 9,
+  "logs": [
+    {
+      "id": 1,
+      "ts": 1763550424,
+      "question": "what is msme",
+      "reply": "[Ollama error: 404 Client Error: Not Found for url: http://localhost:11434/api/generate]",
+      "model": "ollama:gemma2",
+      "feature": "rag",
+      "version": "default",
+      "language": "en",
+      "feedback": "positive"
+    },
+    {
+      "id": 2,
+      "ts": 1763550664,
+      "question": "what is msme",
+      "reply": "[Ollama error: 404 Client Error: Not Found for url: http://localhost:11434/api/generate]",
+      "model": "ollama:gemma2",
+      "feature": "rag",
+      "version": "default",
+      "language": "en",
+      "feedback": "negative"
+    },
+    {
+      "id": 3,
+      "ts": 1763550916,
+      "question": "what is msme",
+      "reply": "[Ollama error: 404 Client Error: Not Found for url: http://localhost:11434/api/generate]",
+      "model": "ollama:gemma2",
+      "feature": "rag",
+      "version": "default",
+      "language": "en",
+      "feedback": "positive"
+    },
+    {
+      "id": 4,
+      "ts": 1763551067,
+      "question": "what is msme",
+      "reply": "[Ollama error: 404 Client Error: Not Found for url: http://localhost:11434/api/generate]",
+      "model": "ollama:gemma2",
+      "feature": "rag",
+      "version": "default",
+      "language": "en",
+      "feedback": null
+    },
+    {
+      "id": 5,
+      "ts": 1763551209,
+      "question": "what is msme",
+      "reply": "[Ollama error: 404 Client Error: Not Found for url: http://localhost:11434/api/generate]",
+      "model": "ollama:gemma2",
+      "feature": "rag",
+      "version": "default",
+      "language": "en",
+      "feedback": null
+    },
+    {
+      "id": 6,
+      "ts": 1763551311,
+      "question": "what is msme",
+      "reply": "[Ollama error: 404 Client Error: Not Found for url: http://localhost:11434/api/generate]",
+      "model": "ollama:gemma2",
+      "feature": "rag",
+      "version": "default",
+      "language": "en",
+      "feedback": null
+    },
+    {
+      "id": 7,
+      "ts": 1763551466,
+      "user_id": "anonymous",
+      "question": "what is msme",
+      "reply": "[Ollama HTTP Error: 404 Client Error: Not Found for url: http://localhost:11434/api/chat - {\"error\":\"model 'ollama:gemma2' not found\"}]",
+      "model": "ollama:gemma2",
+      "feature": "rag",
+      "version": "default",
+      "feedback": null
+    },
+    {
+      "id": 8,
+      "ts": 1763551905,
+      "user_id": "user-123",
+      "question": "hi",
+      "reply": "Hello! 👋  How can I help you today? 😊 \n",
+      "model": "gemma2:2b",
+      "feature": "rag",
+      "version": "default",
+      "feedback": null
+    },
+    {
+      "id": 9,
+      "ts": 1763551951,
+      "user_id": "user-123",
+      "question": "what is msme",
+      "reply": "MSME stands for **Micro, Small and Medium Enterprises**. \n\nHere's a breakdown:\n\n* **Micro Enterprises:**  Have a limited number of employees (usually less than 10), low investment capital, and typically operate in services or retail.\n* **Small Enterprises:**  Have fewer employees (typically between 10-100) and invest moderately in assets. \n* **Medium Enterprises:** Have a significant workforce (around 100-250 employees), substantial investments in equipment, technology, and operations. They often have larger marketing budgets.\n\n**Why is MSME important?**\n* **Job Creation:**  MSMES are major employers of local populations, especially those who can't access large firms.\n* **Economic Growth:**  MSME activity contributes significantly to a nation's GDP (Gross Domestic Product) and promotes broader economic growth. \n* **Innovation:**  SMEs often pioneer new products and services that drive innovation in the market.\n\n**Things to know about MSMES:**\n* **Regulatory Support:** Many countries have specific support programs for their MSME sector, including funding opportunities, simplified tax policies, access to credit, training resources, and mentoring initiatives. \n* **Global Competition:**  MSMES are increasingly looking at international markets to grow their businesses.\n\nLet me know if you want more information about MSME in a particular country or industry! \n",
+      "model": "gemma2:2b",
+      "feature": "rag",
+      "version": "default",
+      "feedback": null
+    }
+  ]
+}

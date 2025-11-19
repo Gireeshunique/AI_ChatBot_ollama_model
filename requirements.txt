@@ -22,5 +22,4 @@ faiss-cpu==1.8.0
 
 # Optional (text embedding and preprocessing)
 tqdm==4.66.4
-
-python-dotenv
+python-dotenv==1.1.1

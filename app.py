@@ -1,434 +1,391 @@
 # app.py
+"""
+Backend for Ollama (new API) + JSON chatlogs + JWT admin + optional Whisper.
+Calls Ollama at /api/chat with messages format.
+"""
+
 import os
 import json
 import time
-import sys
-import subprocess
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
-from deep_translator import GoogleTranslator
-from dotenv import load_dotenv
-import requests
-import numpy as np
-import faiss
-from sentence_transformers import SentenceTransformer
-import threading
-import whisper
-import shutil
 import tempfile
-import zipfile
+import threading
+from functools import wraps
+from io import StringIO
+from dotenv import load_dotenv
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
+import requests
+import jwt
+from werkzeug.utils import secure_filename
 
-# ----------------- Env & Paths -----------------
+# Optional whisper
+try:
+    import whisper
+    WHISPER_AVAILABLE = True
+except Exception:
+    WHISPER_AVAILABLE = False
+
 load_dotenv()
-BACKEND_ROOT = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BACKEND_ROOT, "data")
-UPLOADS_DIR = os.path.join(DATA_DIR, "uploads")
-CORPUS_PATH = os.path.join(DATA_DIR, "pdf_corpus.txt")
-METADATA_PATH = os.path.join(DATA_DIR, "metadata.json")
-EMBEDDINGS_PATH = os.path.join(DATA_DIR, "embeddings.npy")
-INDEX_PATH = os.path.join(DATA_DIR, "faiss.index")
-CHAT_LOG = os.path.join(DATA_DIR, "chat_logs.json")
-TRAIN_INFO_PATH = os.path.join(DATA_DIR, "train_info_versions.json")
 
-os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(UPLOADS_DIR, exist_ok=True)
+# --------------- CONFIG ---------------
+JWT_SECRET = os.getenv("JWT_SECRET", "supersecretjwt")
+ADMIN_USER = os.getenv("ADMIN_USER", "admin")
+ADMIN_PASS = os.getenv("ADMIN_PASS", "adminpass")
 
-# ----------------- Flask app -----------------
-app = Flask(__name__, static_folder="../frontend/build", static_url_path="/")
-CORS(app, supports_credentials=True)
-app.secret_key = os.getenv("FLASK_SECRET", "change_this_secret")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost")
+OLLAMA_PORT = os.getenv("OLLAMA_PORT", "11434")
+OLLAMA_CHAT_API = f"{OLLAMA_HOST}:{OLLAMA_PORT}/api/chat"
 
-# ----------------- Load sentence-transformer for queries ----------- 
-embed_model = None
-index = None
-metadata = None
+CHATLOG_FILE = os.getenv("CHATLOG_FILE", "chatlogs.json")
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
+FLASK_DEBUG = os.getenv("FLASK_DEBUG", "true").lower() in ("1", "true")
+PORT = int(os.getenv("PORT", 5000))
 
-def load_index_and_models():
-    global embed_model, index, metadata
-    try:
-        print("Loading embed model...")
-        embed_model = SentenceTransformer("all-MiniLM-L6-v2")
-    except Exception as e:
-        print("Failed to load sentence-transformer:", e)
-        embed_model = None
+# --------------- APP INIT ---------------
+app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
-    if os.path.exists(INDEX_PATH) and os.path.exists(METADATA_PATH) and os.path.exists(EMBEDDINGS_PATH):
+_file_lock = threading.Lock()
+
+# --------------- LOG FILE HELPERS ---------------
+def ensure_logfile():
+    if not os.path.exists(CHATLOG_FILE):
+        with _file_lock:
+            if not os.path.exists(CHATLOG_FILE):
+                with open(CHATLOG_FILE, "w", encoding="utf-8") as f:
+                    json.dump({"seq": 0, "logs": []}, f, indent=2, ensure_ascii=False)
+
+def load_logs():
+    ensure_logfile()
+    with open(CHATLOG_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_logs(data):
+    with _file_lock:
+        tmp = tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8", suffix=".tmp")
+        tmp.write(json.dumps(data, indent=2, ensure_ascii=False))
+        tmp.flush()
+        tmp.close()
+        os.replace(tmp.name, CHATLOG_FILE)
+
+def next_id():
+    data = load_logs()
+    data["seq"] = int(data.get("seq", 0)) + 1
+    save_logs(data)
+    return data["seq"]
+
+def add_log(entry):
+    data = load_logs()
+    data.setdefault("logs", []).append(entry)
+    save_logs(data)
+
+def now_ts():
+    return int(time.time())
+
+# --------------- JWT HELPERS ---------------
+def create_jwt(payload: dict):
+    p = dict(payload)
+    p["exp"] = now_ts() + 60 * 60 * 12  # 12 hours
+    token = jwt.encode(p, JWT_SECRET, algorithm="HS256")
+    return token.decode() if isinstance(token, bytes) else token
+
+def decode_jwt(token: str):
+    return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+
+def admin_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            return jsonify({"error": "Missing token"}), 401
+        token = auth.split(" ", 1)[1]
         try:
-            print("Loading FAISS index and metadata...")
-            index = faiss.read_index(INDEX_PATH)
-            metadata = json.load(open(METADATA_PATH, "r", encoding="utf-8"))
-            print("Index & metadata loaded.")
+            payload = decode_jwt(token)
+            if payload.get("sub") != "admin":
+                return jsonify({"error": "Forbidden"}), 403
+            return fn(*args, **kwargs)
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token expired"}), 401
         except Exception as e:
-            print("Error loading index/metadata:", e)
-            index = None
-            metadata = None
-    else:
-        print("Index or metadata missing — run ingestion first.")
+            return jsonify({"error": "Invalid token", "msg": str(e)}), 401
+    return wrapper
 
-load_index_and_models()
-
-# ----------------- Whisper (optional) -----------------
-whisper_model = None
-def load_whisper():
-    global whisper_model
+# --------------- Ollama (new API) ---------------
+def generate_reply_ollama(model: str, messages: list, timeout: int = 60):
+    """
+    Calls Ollama v0.4+ /api/chat endpoint.
+    messages: list of {"role": "user"|"system"|"assistant", "content": "..."}
+    model: e.g. "gemma2:2b" or "phi3:3.8b"
+    """
     try:
-        print("Loading Whisper model (background)...")
-        whisper_model = whisper.load_model("small", device="cpu")
-        print("Whisper loaded.")
+        payload = {
+            "model": model,
+            "messages": messages,
+            "stream": False
+        }
+        r = requests.post(OLLAMA_CHAT_API, json=payload, timeout=timeout)
+        r.raise_for_status()
+        data = r.json()
+
+        # Defensive parsing for different possible shapes:
+        # - {"message": {"content": "..."}} OR
+        # - {"choices": [{"message": {"content": "..."}}], ...}
+        if isinstance(data, dict):
+            # check .message.content
+            msg = data.get("message")
+            if isinstance(msg, dict):
+                content = msg.get("content")
+                if isinstance(content, str):
+                    return content
+
+            # check .choices[0].message.content
+            choices = data.get("choices")
+            if isinstance(choices, list) and len(choices) > 0:
+                first = choices[0]
+                if isinstance(first, dict):
+                    m = first.get("message") or first.get("content") or first.get("text")
+                    if isinstance(m, dict):
+                        c = m.get("content") or m.get("text")
+                        if isinstance(c, str):
+                            return c
+                    if isinstance(m, str):
+                        return m
+
+            # as fallback: try 'response' or 'text'
+            if "response" in data and isinstance(data["response"], str):
+                return data["response"]
+            if "text" in data and isinstance(data["text"], str):
+                return data["text"]
+        # fallback to stringifying response
+        return str(data)
+    except requests.exceptions.HTTPError as he:
+        return f"[Ollama HTTP Error: {he} - {getattr(he.response, 'text', '')}]"
     except Exception as e:
-        print("Whisper load error:", e)
-        whisper_model = None
+        return f"[Ollama Error: {str(e)}]"
 
-threading.Thread(target=load_whisper, daemon=True).start()
+# --------------- ROUTES ---------------
 
-# ----------------- Utilities -----------------
-def translate_text(text, target_lang):
-    if not text or not text.strip():
-        return text
-    try:
-        return GoogleTranslator(source="auto", target=target_lang).translate(text)
-    except Exception as e:
-        print("Translate error:", e)
-        return text
+@app.post("/api/admin/login")
+def admin_login():
+    body = request.json or {}
+    username = (body.get("username") or "").strip()
+    password = (body.get("password") or "").strip()
+    if username == ADMIN_USER and password == ADMIN_PASS:
+        token = create_jwt({"sub": "admin"})
+        return jsonify({"token": token})
+    return jsonify({"error": "Invalid credentials"}), 401
 
-def retrieve_chunks(query, top_k=4):
-    global embed_model, index, metadata
-    if embed_model is None or index is None or metadata is None:
-        return []
-    try:
-        q_emb = embed_model.encode([query], convert_to_numpy=True)
-        try:
-            faiss.normalize_L2(q_emb)
-        except Exception:
-            q_emb = q_emb / (np.linalg.norm(q_emb, axis=1, keepdims=True) + 1e-10)
-        D, I = index.search(q_emb.astype("float32"), top_k)
-        results = []
-        for idx in I[0]:
-            if idx < 0 or idx >= len(metadata):
-                continue
-            results.append(metadata[idx].get("text", ""))
-        return results
-    except Exception as e:
-        print("retrieve_chunks error:", e)
-        return []
-
-def make_context_text(chunks):
-    joined = "\n\n".join(chunks)
-    return joined[:3500]
-
-# ----------------- Ollama generic call -----------------
-def call_ollama_generic(model_name, context_text, question, timeout=40):
-    endpoint = "http://localhost:11434/api/generate"
-    full_prompt = (
-        "Use the context below to answer the question. If the answer is not in the context, answer concisely.\n\n"
-        f"CONTEXT:\n{context_text}\n\nQUESTION:\n{question}\n\nAnswer:"
-    )
-    try:
-        r = requests.post(endpoint, json={"model": model_name, "prompt": full_prompt, "stream": False}, timeout=timeout)
-        print(f"[Ollama] status={r.status_code}")
-        print("[Ollama] resp preview:", (r.text or "")[:500])
-        if r.status_code != 200:
-            return f"⚠️ Ollama error {r.status_code}: {r.text}"
-        try:
-            j = r.json()
-        except ValueError:
-            return r.text or "⚠️ Ollama returned non-JSON response."
-        if isinstance(j, dict):
-            if "response" in j and isinstance(j["response"], str):
-                return j["response"].strip()
-            if "choices" in j and isinstance(j["choices"], list) and len(j["choices"]) > 0:
-                first = j["choices"][0]
-                for key in ("text", "content", "message", "output"):
-                    if key in first and isinstance(first[key], str):
-                        return first[key].strip()
-        return str(j)[:2000]
-    except requests.exceptions.ConnectionError:
-        return "⚠️ Ollama is not running on localhost:11434. Start it with: ollama serve"
-    except requests.Timeout:
-        return "⚠️ Ollama request timed out."
-    except Exception as e:
-        print("Ollama call error:", e)
-        return f"⚠️ Ollama call error: {e}"
-
-# ----------------- Chat logging -----------------
-def log_chat(model, question, answer):
-    logs = []
-    if os.path.exists(CHAT_LOG):
-        try:
-            with open(CHAT_LOG, "r", encoding="utf-8") as f:
-                logs = json.load(f)
-        except Exception:
-            logs = []
-    logs.append({"model": model, "question": question, "answer": answer, "ts": time.time()})
-    try:
-        with open(CHAT_LOG, "w", encoding="utf-8") as f:
-            json.dump(logs, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print("Failed to write chat log:", e)
-
-# ----------------- Train info helpers -----------------
-def read_train_history():
-    if not os.path.exists(TRAIN_INFO_PATH):
-        return []
-    try:
-        return json.load(open(TRAIN_INFO_PATH, "r", encoding="utf-8"))
-    except Exception:
-        return []
-
-def write_train_history(history):
-    try:
-        with open(TRAIN_INFO_PATH, "w", encoding="utf-8") as f:
-            json.dump(history, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print("Failed to write train history:", e)
-
-# ----------------- Routes -----------------
-@app.route("/api/chat", methods=["POST"])
+@app.post("/api/chat")
 def chat():
-    data = request.get_json(force=True)
-    message = data.get("message", "").strip()
-    lang = data.get("lang", "auto")
-    model_choice = data.get("model", "ollama:gemma2")  
-    top_k = int(data.get("top_k", 4))
-
-    if not message:
-        return jsonify({"reply": "⚠️ Please enter a message."}), 400
-
-    query_for_search = message if lang != "te" else translate_text(message, "en")
-    chunks = retrieve_chunks(query_for_search, top_k=top_k)
-    context_text = make_context_text(chunks)
-
-    answer = "⚠️ Unknown model selection."
-    if model_choice.startswith("ollama"):
-        parts = model_choice.split(":", 1)
-        if len(parts) == 2:
-            alias = parts[1]
-            if alias == "gemma2":
-                answer = call_ollama_generic("gemma2:2b", context_text, message)
-            elif alias == "phi3":
-                answer = call_ollama_generic("phi3:3.8b", context_text, message)
-            else:
-                answer = f"⚠️ Unknown Ollama model alias: {alias}"
-        else:
-            answer = "⚠️ Invalid model format."
-    else:
-        answer = "⚠️ Unsupported model."
-
-    log_chat(model_choice, message, answer)
-    return jsonify({"reply": answer, "used_context": chunks})
-
-# ---------- Transcription endpoint (Whisper) ----------
-@app.route("/api/transcribe", methods=["POST"])
-def transcribe_audio():
-    file = request.files.get("file")
-    lang = request.form.get("lang", "en")
-    model_choice = request.form.get("model", "ollama:gemma2")
-
-    if file is None:
-        return jsonify({"error": "No audio file uploaded."}), 400
-
-    tmpdir = tempfile.mkdtemp()
     try:
-        tmp_path = os.path.join(tmpdir, "upload.wav")
-        file.save(tmp_path)
+        d = request.json or {}
+        message = (d.get("message") or "").strip()
+        if not message:
+            return jsonify({"error": "Empty message"}), 400
+
+        model = (d.get("model") or "gemma2:2b").strip()
+        feature = (d.get("feature") or "rag").strip()
+        version = (d.get("version") or "default").strip()
+        user_id = (d.get("user_id") or d.get("user") or "anonymous")
+
+        # Build messages list: include optional system message based on feature/version
+        messages = []
+        system_lines = []
+        if feature == "rag":
+            system_lines.append("You are a precise RAG assistant.")
+        elif feature == "lora":
+            system_lines.append("You are a LoRA fine-tuned assistant.")
+        if version and version != "default":
+            system_lines.append(f"[Version: {version}]")
+        if system_lines:
+            messages.append({"role": "system", "content": "\n".join(system_lines)})
+
+        messages.append({"role": "user", "content": message})
+
+        reply = generate_reply_ollama(model=model, messages=messages)
+
+        entry = {
+            "id": next_id(),
+            "ts": now_ts(),
+            "user_id": user_id,
+            "question": message,
+            "reply": reply,
+            "model": model,
+            "feature": feature,
+            "version": version,
+            "feedback": None
+        }
+        add_log(entry)
+
+        return jsonify({"reply": reply, "ts": entry["ts"], "id": entry["id"]})
+    except Exception as e:
+        return jsonify({"error": "Server error", "msg": str(e)}), 500
+
+@app.post("/api/transcribe")
+def transcribe():
+    try:
+        if "file" not in request.files:
+            return jsonify({"error": "No file uploaded"}), 400
+        f = request.files["file"]
+        filename = secure_filename(f.filename or "upload.wav")
+        tmpdir = tempfile.mkdtemp(prefix="msme_trans_")
+        filepath = os.path.join(tmpdir, filename)
+        f.save(filepath)
+
+        lang = request.form.get("lang") or request.form.get("language") or "en"
+        model = (request.form.get("model") or "gemma2:2b").strip()
+        feature = (request.form.get("feature") or "rag").strip()
+        version = (request.form.get("version") or "default").strip()
+        user_id = request.form.get("user_id") or "anonymous"
 
         text = ""
-        if whisper_model is not None:
-            try:
-                res = whisper_model.transcribe(tmp_path, language=None)
-                text = res.get("text", "").strip()
-            except Exception as e:
-                print("Whisper transcription error:", e)
-                text = ""
+        if WHISPER_AVAILABLE:
+            w = whisper.load_model(WHISPER_MODEL)
+            res = w.transcribe(filepath, language=None if lang == "auto" else lang)
+            text = res.get("text", "") or ""
         else:
-            return jsonify({"error": "Transcription model not available."}), 503
+            # no whisper available; return uploaded filename info
+            text = ""
 
-        query_for_search = text if lang != "te" else translate_text(text, "en")
-        chunks = retrieve_chunks(query_for_search, top_k=4)
-        context_text = make_context_text(chunks)
+        # assemble messages
+        messages = []
+        system_lines = []
+        if feature == "rag":
+            system_lines.append("You are a precise RAG assistant.")
+        elif feature == "lora":
+            system_lines.append("You are a LoRA fine-tuned assistant.")
+        if version and version != "default":
+            system_lines.append(f"[Version: {version}]")
+        if system_lines:
+            messages.append({"role": "system", "content": "\n".join(system_lines)})
+        messages.append({"role": "user", "content": text or "(no transcript)"} )
 
-        reply = "⚠️ Unknown model selection."
-        if model_choice.startswith("ollama"):
-            parts = model_choice.split(":", 1)
-            alias = parts[1] if len(parts) > 1 else ""
-            if alias == "gemma2":
-                reply = call_ollama_generic("gemma2:2b", context_text, text)
-            elif alias == "phi3":
-                reply = call_ollama_generic("phi3:3.8b", context_text, text)
-            else:
-                reply = f"⚠️ Unknown Ollama model alias: {alias}"
-        else:
-            reply = "⚠️ Unsupported model."
+        reply = generate_reply_ollama(model=model, messages=messages)
 
-        log_chat(model_choice, text, reply)
-        return jsonify({"text": text, "reply": reply, "used_context": chunks})
-    finally:
+        entry = {
+            "id": next_id(),
+            "ts": now_ts(),
+            "user_id": user_id,
+            "question": text,
+            "reply": reply,
+            "model": model,
+            "feature": feature,
+            "version": version,
+            "feedback": None
+        }
+        add_log(entry)
+
+        # cleanup
         try:
-            shutil.rmtree(tmpdir)
+            if os.path.exists(filepath):
+                os.remove(filepath)
+            os.rmdir(tmpdir)
         except Exception:
             pass
 
-# ---------- Admin routes ----------
-@app.route("/api/admin/train", methods=["POST"])
-def admin_train():
-    files = request.files.getlist("files")
-    version = request.form.get("version", f"v{int(time.time())}")
-    description = request.form.get("description", "")
-    model_key = request.form.get("model_key", "ollama")
-    train_rag = request.form.get("train_rag", "true").lower() == "true"
-
-    if not files:
-        return jsonify({"message": "No PDF files uploaded."}), 400
-
-    model_upload_dir = os.path.join(UPLOADS_DIR, model_key, version)
-    os.makedirs(model_upload_dir, exist_ok=True)
-
-    saved_files = []
-    for f in files:
-        fname = f.filename
-        dest = os.path.join(model_upload_dir, fname)
-        f.save(dest)
-        saved_files.append(fname)
-
-    train_info = {
-        "model": model_key,
-        "version": version,
-        "description": description,
-        "files": saved_files,
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "active": True
-    }
-    history = read_train_history()
-    for entry in history:
-        if entry.get("model") == model_key:
-            entry["active"] = False
-    history.insert(0, train_info)
-    write_train_history(history)
-
-    if train_rag:
-        try:
-            tmp_zip = os.path.join(DATA_DIR, f"tmp_uploads_{int(time.time())}.zip")
-            with zipfile.ZipFile(tmp_zip, "w") as z:
-                for root, _, files_walk in os.walk(UPLOADS_DIR):
-                    for fname in files_walk:
-                        if fname.lower().endswith(".pdf"):
-                            z.write(os.path.join(root, fname), arcname=fname)
-            env = os.environ.copy()
-            env["ZIP_PATH_OVERRIDE"] = tmp_zip
-            subprocess.run([sys.executable, os.path.join(BACKEND_ROOT, "ingest_build_index.py")], env=env, check=False)
-            load_index_and_models()
-            try:
-                os.remove(tmp_zip)
-            except Exception:
-                pass
-        except Exception as e:
-            print("Failed to run ingestion:", e)
-            return jsonify({"message": "Uploaded but ingestion failed", "error": str(e)}), 500
-
-    return jsonify({"message": f"Trained on {len(saved_files)} PDFs.", "train_info": train_info})
-
-@app.route("/api/admin/activate", methods=["POST"])
-def activate_version():
-    data = request.get_json(force=True)
-    model_key = data.get("model")
-    version = data.get("version")
-
-    if not model_key or not version:
-        return jsonify({"success": False, "message": "Model and version required."}), 400
-
-    history = read_train_history()
-    found = False
-    for entry in history:
-        if entry.get("model") == model_key and entry.get("version") == version:
-            entry["active"] = True
-            found = True
-        elif entry.get("model") == model_key:
-            entry["active"] = False
-
-    if not found:
-        return jsonify({"success": False, "message": "Version not found."}), 404
-
-    write_train_history(history)
-    return jsonify({"success": True, "message": "Activated", "version": version})
-
-@app.route("/api/admin/delete-version", methods=["POST"])
-def delete_version():
-    data = request.get_json(force=True)
-    model_key = data.get("model")
-    version = data.get("version")
-
-    if not model_key or not version:
-        return jsonify({"success": False, "message": "Model and version required."}), 400
-
-    history = read_train_history()
-    removed = None
-    new_history = []
-    for entry in history:
-        if entry.get("model") == model_key and entry.get("version") == version:
-            removed = entry
-            continue
-        new_history.append(entry)
-
-    if not removed:
-        return jsonify({"success": False, "message": "Version not found."}), 404
-
-    folder_to_remove = os.path.join(UPLOADS_DIR, model_key, version)
-    try:
-        if os.path.exists(folder_to_remove):
-            shutil.rmtree(folder_to_remove)
+        return jsonify({"text": text, "reply": reply, "ts": entry["ts"], "id": entry["id"]})
     except Exception as e:
-        print("Failed to remove uploaded files:", e)
+        return jsonify({"error": "Server error", "msg": str(e)}), 500
 
-    if removed.get("active", False):
-        promoted = None
-        for entry in new_history:
-            if entry.get("model") == model_key:
-                promoted = entry
+@app.get("/api/admin/chat/logs")
+@admin_required
+def admin_get_logs():
+    try:
+        data = load_logs()
+        logs = data.get("logs", [])[:]
+        model_q = request.args.get("model")
+        fb_q = request.args.get("feedback")
+        user_q = request.args.get("user_id")
+
+        if model_q:
+            logs = [l for l in logs if (l.get("model") or "").lower() == model_q.lower()]
+        if fb_q:
+            if fb_q == "none":
+                logs = [l for l in logs if not l.get("feedback")]
+            else:
+                logs = [l for l in logs if l.get("feedback") == fb_q]
+        if user_q:
+            logs = [l for l in logs if l.get("user_id") == user_q]
+
+        logs = sorted(logs, key=lambda x: x.get("ts", 0), reverse=True)
+        limit = int(request.args.get("limit") or 1000)
+        skip = int(request.args.get("skip") or 0)
+        return jsonify({"logs": logs[skip: skip + limit]})
+    except Exception as e:
+        return jsonify({"error": "Server error", "msg": str(e)}), 500
+
+@app.get("/api/admin/chat/logs/<int:ts>")
+@admin_required
+def admin_get_single(ts: int):
+    try:
+        logs = load_logs().get("logs", [])
+        for l in logs:
+            if int(l.get("ts", 0)) == int(ts):
+                return jsonify(l)
+        return jsonify({"error": "Not found"}), 404
+    except Exception as e:
+        return jsonify({"error": "Server error", "msg": str(e)}), 500
+
+@app.post("/api/chat/feedback")
+@admin_required
+def admin_feedback():
+    try:
+        d = request.json or {}
+        ts = d.get("ts")
+        fb = d.get("feedback")
+        if ts is None or fb is None:
+            return jsonify({"error": "Missing ts or feedback"}), 400
+        data = load_logs()
+        modified = False
+        for entry in data.get("logs", []):
+            if int(entry.get("ts", 0)) == int(ts):
+                entry["feedback"] = None if fb == "none" else fb
+                modified = True
                 break
-        if promoted:
-            promoted["active"] = True
+        if modified:
+            save_logs(data)
+            return jsonify({"status": "ok"})
+        else:
+            return jsonify({"error": "Not found"}), 404
+    except Exception as e:
+        return jsonify({"error": "Server error", "msg": str(e)}), 500
 
-    write_train_history(new_history)
-    resp = {"success": True, "message": "Deleted", "deleted": removed}
-    return jsonify(resp)
+@app.get("/api/admin/chat/export.csv")
+@admin_required
+def admin_export_csv():
+    try:
+        data = load_logs()
+        logs = sorted(data.get("logs", []), key=lambda x: x.get("ts", 0), reverse=True)
+        # build CSV in memory
+        si = StringIO()
+        import csv
+        writer = csv.writer(si)
+        writer.writerow(["id", "ts", "user_id", "question", "reply", "model", "feature", "version", "feedback"])
+        for l in logs:
+            writer.writerow([
+                l.get("id"),
+                l.get("ts"),
+                l.get("user_id"),
+                (l.get("question") or "").replace("\n", " "),
+                (l.get("reply") or "").replace("\n", " "),
+                l.get("model"),
+                l.get("feature"),
+                l.get("version"),
+                l.get("feedback")
+            ])
+        si.seek(0)
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv")
+        tmp.write(si.getvalue().encode("utf-8"))
+        tmp.close()
+        return send_file(tmp.name, as_attachment=True, download_name="chatlogs.csv", mimetype="text/csv")
+    except Exception as e:
+        return jsonify({"error": "Server error", "msg": str(e)}), 500
 
-@app.route("/api/admin/train/info", methods=["GET"])
-def get_training_info():
-    model = request.args.get("model", "ollama")
-    history = read_train_history()
-    for h in history:
-        if h.get("model") == model:
-            return jsonify(h)
-    return jsonify({"trained": False})
+@app.get("/healthz")
+def healthz():
+    return jsonify({"status": "ok", "time": now_ts()})
 
-@app.route("/api/admin/train/history", methods=["GET"])
-def train_history():
-    return jsonify({"versions": read_train_history()})
-
-@app.route("/api/admin/check", methods=["GET"])
-def admin_check():
-    return jsonify({"logged_in": True})
-
-@app.route("/api/admin/login", methods=["POST"])
-def admin_login():
-    data = request.get_json(force=True)
-    username = data.get("username", "").strip()
-    password = data.get("password", "").strip()
-
-    ADMIN_USER = os.getenv("ADMIN_USER", "admin")
-    ADMIN_PASS = os.getenv("ADMIN_PASS", "msme@123")
-
-    if username == ADMIN_USER and password == ADMIN_PASS:
-        return jsonify({"success": True, "message": "Login successful"})
-    return jsonify({"success": False, "message": "Invalid username or password"}), 401
-
-@app.route("/")
-def serve_frontend():
-    if os.path.exists(app.static_folder):
-        return send_from_directory(app.static_folder, "index.html")
-    return "Chat backend running."
-
-# ----------------- Run -----------------
+# --------------- START ---------------
 if __name__ == "__main__":
-    print("Starting RAG backend (Ollama) with gemma2 and phi3 models...")
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=os.getenv("FLASK_DEBUG", "True") == "True")
+    print("Starting backend (Ollama chat API) ->", OLLAMA_CHAT_API)
+    app.run(host="0.0.0.0", port=PORT, debug=FLASK_DEBUG)
