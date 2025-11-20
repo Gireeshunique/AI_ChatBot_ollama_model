@@ -1,6 +1,7 @@
 # 👉🧩 MSME ONE Assistant
 
 A full‑stack AI assistant for MSMEs — React frontend + Flask backend — that supports English & Telugu, Whisper-based speech-to-text, semantic search (FAISS + SentenceTransformers), and integration with local LLMs via Ollama (e.g. `gemma2:2b`, `phi3.3:8b`).
+![MSME Logo]()
 
 ---
 
