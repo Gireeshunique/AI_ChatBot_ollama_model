@@ -1,5 +1,5 @@
 {
-  "seq": 9,
+  "seq": 16,
   "logs": [
     {
       "id": 1,
@@ -54,7 +54,7 @@
       "feature": "rag",
       "version": "default",
       "language": "en",
-      "feedback": null
+      "feedback": "positive"
     },
     {
       "id": 6,
@@ -65,7 +65,7 @@
       "feature": "rag",
       "version": "default",
       "language": "en",
-      "feedback": null
+      "feedback": "positive"
     },
     {
       "id": 7,
@@ -76,7 +76,7 @@
       "model": "ollama:gemma2",
       "feature": "rag",
       "version": "default",
-      "feedback": null
+      "feedback": "negative"
     },
     {
       "id": 8,
@@ -87,7 +87,7 @@
       "model": "gemma2:2b",
       "feature": "rag",
       "version": "default",
-      "feedback": null
+      "feedback": "positive"
     },
     {
       "id": 9,
@@ -95,6 +95,83 @@
       "user_id": "user-123",
       "question": "what is msme",
       "reply": "MSME stands for **Micro, Small and Medium Enterprises**. \n\nHere's a breakdown:\n\n* **Micro Enterprises:**  Have a limited number of employees (usually less than 10), low investment capital, and typically operate in services or retail.\n* **Small Enterprises:**  Have fewer employees (typically between 10-100) and invest moderately in assets. \n* **Medium Enterprises:** Have a significant workforce (around 100-250 employees), substantial investments in equipment, technology, and operations. They often have larger marketing budgets.\n\n**Why is MSME important?**\n* **Job Creation:**  MSMES are major employers of local populations, especially those who can't access large firms.\n* **Economic Growth:**  MSME activity contributes significantly to a nation's GDP (Gross Domestic Product) and promotes broader economic growth. \n* **Innovation:**  SMEs often pioneer new products and services that drive innovation in the market.\n\n**Things to know about MSMES:**\n* **Regulatory Support:** Many countries have specific support programs for their MSME sector, including funding opportunities, simplified tax policies, access to credit, training resources, and mentoring initiatives. \n* **Global Competition:**  MSMES are increasingly looking at international markets to grow their businesses.\n\nLet me know if you want more information about MSME in a particular country or industry! \n",
+      "model": "gemma2:2b",
+      "feature": "rag",
+      "version": "default",
+      "feedback": "positive"
+    },
+    {
+      "id": 10,
+      "ts": 1763622343,
+      "user_id": "user-123",
+      "question": "hi",
+      "reply": "Hi there! 👋  How can I assist you today? 😊 \n\nJust let me know what you need, and I'll do my best to be helpful and accurate. \n",
+      "model": "gemma2:2b",
+      "feature": "rag",
+      "version": "default",
+      "feedback": null
+    },
+    {
+      "id": 11,
+      "ts": 1763622423,
+      "user_id": "user-123",
+      "question": "what is the process of msme",
+      "reply": "[Ollama Error: HTTPConnectionPool(host='localhost', port=11434): Read timed out. (read timeout=60)]",
+      "model": "gemma2:2b",
+      "feature": "rag",
+      "version": "default",
+      "feedback": "positive"
+    },
+    {
+      "id": 12,
+      "ts": 1763622954,
+      "user_id": "user-123",
+      "question": "hi",
+      "reply": "[Ollama HTTP Error: 500 Server Error: Internal Server Error for url: http://localhost:11434/api/chat - {\"error\":\"model requires more system memory (1.9 GiB) than is available (1.8 GiB)\"}]",
+      "model": "gemma2:2b",
+      "feature": "rag",
+      "version": "default",
+      "feedback": null
+    },
+    {
+      "id": 13,
+      "ts": 1763622997,
+      "user_id": "user-123",
+      "question": "hi",
+      "reply": "[Ollama HTTP Error: 500 Server Error: Internal Server Error for url: http://localhost:11434/api/chat - {\"error\":\"model requires more system memory (1.9 GiB) than is available (1.5 GiB)\"}]",
+      "model": "gemma2:2b",
+      "feature": "rag",
+      "version": "default",
+      "feedback": null
+    },
+    {
+      "id": 14,
+      "ts": 1763623347,
+      "user_id": "user-123",
+      "question": "hi",
+      "reply": "Hello! 👋  \n\nHow can I assist you today? 😊 \n",
+      "model": "gemma2:2b",
+      "feature": "rag",
+      "version": "default",
+      "feedback": null
+    },
+    {
+      "id": 15,
+      "ts": 1763623384,
+      "user_id": "user-123",
+      "question": "what is ful form of msme",
+      "reply": "The full form of MSME is **Micro, Small and Medium Enterprises**. \n\nIt's a categorization for businesses that fall within a specific size range. Here's a breakdown:\n\n* **Micro:** Employing up to 10 people \n* **Small:** Employing between 11-50 people\n* **Medium:** Employing between 51-200 people\n\nIt is important to note that the exact criteria for classification can vary depending on the country and its specific regulations. However, this categorization generally helps:\n \n*  **Government policies**: The MSME sector often receives special attention and support from governments due to its importance in economic growth and employment generation. \n* **Access to funding**: Many financial institutions offer tailored loans and other forms of assistance for businesses categorized as MSME. \n\n\nLet me know if you have any further questions! 😊 \n",
+      "model": "gemma2:2b",
+      "feature": "rag",
+      "version": "default",
+      "feedback": null
+    },
+    {
+      "id": 16,
+      "ts": 1763624452,
+      "user_id": "user-123",
+      "question": "hi",
+      "reply": "Hi! 👋  How can I help you today? 😊 \n\nI'm ready to assist with your needs and provide precise, helpful information based on your requests. \n",
       "model": "gemma2:2b",
       "feature": "rag",
       "version": "default",

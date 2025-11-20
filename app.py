@@ -385,6 +385,167 @@ def admin_export_csv():
 def healthz():
     return jsonify({"status": "ok", "time": now_ts()})
 
+
+
+# ------------------- MODEL TRAINING STORAGE -------------------
+TRAIN_ROOT = "trained_models"
+os.makedirs(TRAIN_ROOT, exist_ok=True)
+
+def model_path(model):
+    p = os.path.join(TRAIN_ROOT, model)
+    os.makedirs(p, exist_ok=True)
+    os.makedirs(os.path.join(p, "versions"), exist_ok=True)
+    return p
+
+def save_meta(model, version, meta):
+    p = os.path.join(model_path(model), "versions", version)
+    os.makedirs(p, exist_ok=True)
+    with open(os.path.join(p, "meta.json"), "w", encoding="utf-8") as f:
+        json.dump(meta, f, indent=2)
+
+def load_meta(model, version):
+    try:
+        p = os.path.join(model_path(model), "versions", version, "meta.json")
+    except:
+        return None
+    if not os.path.exists(p):
+        return None
+    return json.load(open(p, "r", encoding="utf-8"))
+
+def save_active(model, version):
+    with open(os.path.join(model_path(model), "active.json"), "w") as f:
+        json.dump({"active": version}, f)
+
+def get_active(model):
+    p = os.path.join(model_path(model), "active.json")
+    if not os.path.exists(p): 
+        return None
+    return json.load(open(p)).get("active")
+
+
+# ------------------- /api/admin/train -------------------
+@app.post("/api/admin/train")
+@admin_required
+def admin_train():
+    try:
+        version = request.form.get("version")
+        description = request.form.get("description", "")
+        model_key = request.form.get("model_key")
+        train_rag = request.form.get("train_rag") == "true"
+        train_lora = request.form.get("train_lora") == "true"
+
+        if not version or not model_key:
+            return jsonify({"error": "Missing version or model"}), 400
+
+        files = request.files.getlist("files")
+        if not files:
+            return jsonify({"error": "No files uploaded"}), 400
+
+        base = os.path.join(model_path(model_key), "versions", version)
+        os.makedirs(base, exist_ok=True)
+
+        saved_files = []
+        for f in files:
+            fname = secure_filename(f.filename)
+            f.save(os.path.join(base, fname))
+            saved_files.append(fname)
+
+        meta = {
+            "model": model_key,
+            "version": version,
+            "description": description,
+            "files": saved_files,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "rag": train_rag,
+            "lora": train_lora,
+            "active": False
+        }
+
+        save_meta(model_key, version, meta)
+
+        return jsonify({"success": True, "message": "Model trained successfully!", "meta": meta})
+    
+    except Exception as e:
+        return jsonify({"error": "Training failed", "msg": str(e)}), 500
+
+
+# ------------------- /api/admin/train/info -------------------
+@app.get("/api/admin/train/info")
+@admin_required
+def train_info():
+    model = request.args.get("model")
+    active = get_active(model)
+    if not active:
+        return jsonify({"trained": False})
+
+    meta = load_meta(model, active)
+    if meta:
+        meta["active"] = True
+        return jsonify(meta)
+
+    return jsonify({"trained": False})
+
+
+# ------------------- /api/admin/train/history -------------------
+@app.get("/api/admin/train/history")
+@admin_required
+def train_history():
+    versions = []
+
+    for model in os.listdir(TRAIN_ROOT):
+        vdir = os.path.join(TRAIN_ROOT, model, "versions")
+        if not os.path.isdir(vdir): 
+            continue
+
+        active = get_active(model)
+
+        for v in os.listdir(vdir):
+            meta = load_meta(model, v)
+            if meta:
+                meta["model"] = model
+                meta["active"] = (v == active)
+                versions.append(meta)
+
+    versions = sorted(versions, key=lambda x: x["timestamp"], reverse=True)
+
+    return jsonify({"versions": versions})
+
+
+# ------------------- /api/admin/activate -------------------
+@app.post("/api/admin/activate")
+@admin_required
+def activate_version():
+    data = request.json
+    model = data.get("model")
+    version = data.get("version")
+
+    if not model or not version:
+        return jsonify({"error": "Missing params"}), 400
+
+    save_active(model, version)
+    return jsonify({"success": True})
+
+
+# ------------------- /api/admin/delete-version -------------------
+@app.post("/api/admin/delete-version")
+@admin_required
+def delete_version():
+    data = request.json
+    model = data.get("model")
+    version = data.get("version")
+
+    p = os.path.join(model_path(model), "versions", version)
+
+    if os.path.exists(p):
+        import shutil
+        shutil.rmtree(p)
+
+    # If deleted version was active → remove active flag
+    if get_active(model) == version:
+        save_active(model, "")
+
+    return jsonify({"success": True})
+
 # --------------- START ---------------
 if __name__ == "__main__":
     print("Starting backend (Ollama chat API) ->", OLLAMA_CHAT_API)
