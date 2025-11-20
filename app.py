@@ -1,552 +1,644 @@
-# app.py
-"""
-Backend for Ollama (new API) + JSON chatlogs + JWT admin + optional Whisper.
-Calls Ollama at /api/chat with messages format.
-"""
-
+# app.py — Full backend (Chat + Whisper + Ollama + Admin version management)
 import os
 import json
 import time
-import tempfile
+import sys
 import threading
-from functools import wraps
-from io import StringIO
-from dotenv import load_dotenv
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
-import requests
-import jwt
 from werkzeug.utils import secure_filename
+from PyPDF2 import PdfReader
+import whisper
+import requests
+from deep_translator import GoogleTranslator
+from dotenv import load_dotenv
 
-# Optional whisper
-try:
-    import whisper
-    WHISPER_AVAILABLE = True
-except Exception:
-    WHISPER_AVAILABLE = False
-
+# ----------------------------
+# Environment & prints
+# ----------------------------
 load_dotenv()
+sys.stdout.reconfigure(encoding="utf-8")
+print(">>> USING PYTHON FROM:", sys.executable)
 
-# --------------- CONFIG ---------------
-JWT_SECRET = os.getenv("JWT_SECRET", "supersecretjwt")
-ADMIN_USER = os.getenv("ADMIN_USER", "admin")
-ADMIN_PASS = os.getenv("ADMIN_PASS", "adminpass")
+# ----------------------------
+# Config / Paths
+# ----------------------------
+BASE_DIR = os.getcwd()
+DATA_DIR = os.path.join(BASE_DIR, "data")
+PDF_STORE = os.path.join(DATA_DIR, "pdfs")
+VERSIONS_PATH = os.path.join(DATA_DIR, "versions.json")
+CHAT_LOG = os.path.join(DATA_DIR, "chat_logs.json")
 
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost")
-OLLAMA_PORT = os.getenv("OLLAMA_PORT", "11434")
-OLLAMA_CHAT_API = f"{OLLAMA_HOST}:{OLLAMA_PORT}/api/chat"
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(PDF_STORE, exist_ok=True)
 
-CHATLOG_FILE = os.getenv("CHATLOG_FILE", "chatlogs.json")
-WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
-FLASK_DEBUG = os.getenv("FLASK_DEBUG", "true").lower() in ("1", "true")
-PORT = int(os.getenv("PORT", 5000))
+# Ollama / model config
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
+MODEL_NAME = os.getenv("DEFAULT_MODEL", "gemma2:2b")
 
-# --------------- APP INIT ---------------
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+# Admin debug + delete behavior
+DEBUG_ADMIN = True
+DELETE_PDFS_ON_DELETE = False  # set True to remove PDF files when a version is deleted
 
-_file_lock = threading.Lock()
+# ----------------------------
+# Flask app
+# ----------------------------
+app = Flask(__name__, static_folder="../frontend/build", static_url_path="/")
+app.secret_key = os.getenv("FLASK_SECRET", "super_secret_key_change_this")
+CORS(app, supports_credentials=True)
 
-# --------------- LOG FILE HELPERS ---------------
-def ensure_logfile():
-    if not os.path.exists(CHATLOG_FILE):
-        with _file_lock:
-            if not os.path.exists(CHATLOG_FILE):
-                with open(CHATLOG_FILE, "w", encoding="utf-8") as f:
-                    json.dump({"seq": 0, "logs": []}, f, indent=2, ensure_ascii=False)
+# ----------------------------
+# Whisper model (load in background)
+# ----------------------------
+whisper_model = None
 
-def load_logs():
-    ensure_logfile()
-    with open(CHATLOG_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_logs(data):
-    with _file_lock:
-        tmp = tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8", suffix=".tmp")
-        tmp.write(json.dumps(data, indent=2, ensure_ascii=False))
-        tmp.flush()
-        tmp.close()
-        os.replace(tmp.name, CHATLOG_FILE)
-
-def next_id():
-    data = load_logs()
-    data["seq"] = int(data.get("seq", 0)) + 1
-    save_logs(data)
-    return data["seq"]
-
-def add_log(entry):
-    data = load_logs()
-    data.setdefault("logs", []).append(entry)
-    save_logs(data)
-
-def now_ts():
-    return int(time.time())
-
-# --------------- JWT HELPERS ---------------
-def create_jwt(payload: dict):
-    p = dict(payload)
-    p["exp"] = now_ts() + 60 * 60 * 12  # 12 hours
-    token = jwt.encode(p, JWT_SECRET, algorithm="HS256")
-    return token.decode() if isinstance(token, bytes) else token
-
-def decode_jwt(token: str):
-    return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-
-def admin_required(fn):
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        auth = request.headers.get("Authorization", "")
-        if not auth.startswith("Bearer "):
-            return jsonify({"error": "Missing token"}), 401
-        token = auth.split(" ", 1)[1]
-        try:
-            payload = decode_jwt(token)
-            if payload.get("sub") != "admin":
-                return jsonify({"error": "Forbidden"}), 403
-            return fn(*args, **kwargs)
-        except jwt.ExpiredSignatureError:
-            return jsonify({"error": "Token expired"}), 401
-        except Exception as e:
-            return jsonify({"error": "Invalid token", "msg": str(e)}), 401
-    return wrapper
-
-# --------------- Ollama (new API) ---------------
-def generate_reply_ollama(model: str, messages: list, timeout: int = 60):
-    """
-    Calls Ollama v0.4+ /api/chat endpoint.
-    messages: list of {"role": "user"|"system"|"assistant", "content": "..."}
-    model: e.g. "gemma2:2b" or "phi3:3.8b"
-    """
+def load_whisper_model():
+    global whisper_model
     try:
-        payload = {
-            "model": model,
-            "messages": messages,
-            "stream": False
-        }
-        r = requests.post(OLLAMA_CHAT_API, json=payload, timeout=timeout)
-        r.raise_for_status()
-        data = r.json()
+        print("🎙️ Loading Whisper model (small)...")
+        whisper_model = whisper.load_model("small", device="cpu")
+        print("✅ Whisper loaded.")
+    except Exception as e:
+        print("❌ Whisper load error:", e)
+        whisper_model = None
 
-        # Defensive parsing for different possible shapes:
-        # - {"message": {"content": "..."}} OR
-        # - {"choices": [{"message": {"content": "..."}}], ...}
+threading.Thread(target=load_whisper_model).start()
+
+# ----------------------------
+# Utils: debug log
+# ----------------------------
+def dlog(*args, **kwargs):
+    if DEBUG_ADMIN:
+        print("[DEBUG]", *args, **kwargs)
+
+# ----------------------------
+# Utils: versions storage
+# versions.json structure: list of {model, version, description, timestamp, files[], active}
+# ----------------------------
+def load_versions():
+    if not os.path.exists(VERSIONS_PATH):
+        return []
+    try:
+        with open(VERSIONS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        dlog("load_versions error:", e)
+        return []
+
+def save_versions(versions):
+    try:
+        with open(VERSIONS_PATH, "w", encoding="utf-8") as f:
+            json.dump(versions, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        dlog("save_versions error:", e)
+
+# ----------------------------
+# Utils: extract text from PDF
+# ----------------------------
+def extract_pdf_text(path):
+    text = ""
+    try:
+        reader = PdfReader(path)
+        for page in reader.pages:
+            text += page.extract_text() or ""
+    except Exception as e:
+        dlog("PDF extract error:", path, e)
+    return text
+
+# ----------------------------
+# Utils: Ollama call
+# ----------------------------
+def ollama_generate(prompt, model=MODEL_NAME, timeout=60):
+    try:
+        payload = {"model": model, "prompt": prompt, "stream": False}
+        res = requests.post(OLLAMA_URL, json=payload, timeout=timeout)
+        res.raise_for_status()
+        data = res.json()
+        # Ollama response shape may differ; try common keys:
         if isinstance(data, dict):
-            # check .message.content
-            msg = data.get("message")
-            if isinstance(msg, dict):
-                content = msg.get("content")
-                if isinstance(content, str):
-                    return content
-
-            # check .choices[0].message.content
-            choices = data.get("choices")
-            if isinstance(choices, list) and len(choices) > 0:
-                first = choices[0]
-                if isinstance(first, dict):
-                    m = first.get("message") or first.get("content") or first.get("text")
-                    if isinstance(m, dict):
-                        c = m.get("content") or m.get("text")
-                        if isinstance(c, str):
-                            return c
-                    if isinstance(m, str):
-                        return m
-
-            # as fallback: try 'response' or 'text'
-            if "response" in data and isinstance(data["response"], str):
-                return data["response"]
-            if "text" in data and isinstance(data["text"], str):
-                return data["text"]
-        # fallback to stringifying response
+            # try a few keys
+            for k in ("response", "text", "content", "output"):
+                if k in data:
+                    return data[k]
+            # if nested
+            if "choices" in data and isinstance(data["choices"], list) and data["choices"]:
+                ch = data["choices"][0]
+                return ch.get("message", ch.get("text", "")) if isinstance(ch, dict) else str(ch)
         return str(data)
-    except requests.exceptions.HTTPError as he:
-        return f"[Ollama HTTP Error: {he} - {getattr(he.response, 'text', '')}]"
     except Exception as e:
-        return f"[Ollama Error: {str(e)}]"
+        dlog("Ollama generate error:", e)
+        return "⚠️ Ollama not responding."
 
-# --------------- ROUTES ---------------
-
-@app.post("/api/admin/login")
-def admin_login():
-    body = request.json or {}
-    username = (body.get("username") or "").strip()
-    password = (body.get("password") or "").strip()
-    if username == ADMIN_USER and password == ADMIN_PASS:
-        token = create_jwt({"sub": "admin"})
-        return jsonify({"token": token})
-    return jsonify({"error": "Invalid credentials"}), 401
-
-@app.post("/api/chat")
-def chat():
-    try:
-        d = request.json or {}
-        message = (d.get("message") or "").strip()
-        if not message:
-            return jsonify({"error": "Empty message"}), 400
-
-        model = (d.get("model") or "gemma2:2b").strip()
-        feature = (d.get("feature") or "rag").strip()
-        version = (d.get("version") or "default").strip()
-        user_id = (d.get("user_id") or d.get("user") or "anonymous")
-
-        # Build messages list: include optional system message based on feature/version
-        messages = []
-        system_lines = []
-        if feature == "rag":
-            system_lines.append("You are a precise RAG assistant.")
-        elif feature == "lora":
-            system_lines.append("You are a LoRA fine-tuned assistant.")
-        if version and version != "default":
-            system_lines.append(f"[Version: {version}]")
-        if system_lines:
-            messages.append({"role": "system", "content": "\n".join(system_lines)})
-
-        messages.append({"role": "user", "content": message})
-
-        reply = generate_reply_ollama(model=model, messages=messages)
-
-        entry = {
-            "id": next_id(),
-            "ts": now_ts(),
-            "user_id": user_id,
-            "question": message,
-            "reply": reply,
-            "model": model,
-            "feature": feature,
-            "version": version,
-            "feedback": None
-        }
-        add_log(entry)
-
-        return jsonify({"reply": reply, "ts": entry["ts"], "id": entry["id"]})
-    except Exception as e:
-        return jsonify({"error": "Server error", "msg": str(e)}), 500
-
-@app.post("/api/transcribe")
-def transcribe():
-    try:
-        if "file" not in request.files:
-            return jsonify({"error": "No file uploaded"}), 400
-        f = request.files["file"]
-        filename = secure_filename(f.filename or "upload.wav")
-        tmpdir = tempfile.mkdtemp(prefix="msme_trans_")
-        filepath = os.path.join(tmpdir, filename)
-        f.save(filepath)
-
-        lang = request.form.get("lang") or request.form.get("language") or "en"
-        model = (request.form.get("model") or "gemma2:2b").strip()
-        feature = (request.form.get("feature") or "rag").strip()
-        version = (request.form.get("version") or "default").strip()
-        user_id = request.form.get("user_id") or "anonymous"
-
-        text = ""
-        if WHISPER_AVAILABLE:
-            w = whisper.load_model(WHISPER_MODEL)
-            res = w.transcribe(filepath, language=None if lang == "auto" else lang)
-            text = res.get("text", "") or ""
-        else:
-            # no whisper available; return uploaded filename info
-            text = ""
-
-        # assemble messages
-        messages = []
-        system_lines = []
-        if feature == "rag":
-            system_lines.append("You are a precise RAG assistant.")
-        elif feature == "lora":
-            system_lines.append("You are a LoRA fine-tuned assistant.")
-        if version and version != "default":
-            system_lines.append(f"[Version: {version}]")
-        if system_lines:
-            messages.append({"role": "system", "content": "\n".join(system_lines)})
-        messages.append({"role": "user", "content": text or "(no transcript)"} )
-
-        reply = generate_reply_ollama(model=model, messages=messages)
-
-        entry = {
-            "id": next_id(),
-            "ts": now_ts(),
-            "user_id": user_id,
-            "question": text,
-            "reply": reply,
-            "model": model,
-            "feature": feature,
-            "version": version,
-            "feedback": None
-        }
-        add_log(entry)
-
-        # cleanup
+# ----------------------------
+# Chat logging
+# ----------------------------
+def log_chat(user, question, answer, model=MODEL_NAME, feedback=None):
+    logs = []
+    if os.path.exists(CHAT_LOG):
         try:
-            if os.path.exists(filepath):
-                os.remove(filepath)
-            os.rmdir(tmpdir)
+            with open(CHAT_LOG, "r", encoding="utf-8") as f:
+                logs = json.load(f)
+        except Exception:
+            logs = []
+    entry = {"user": user, "question": question, "answer": answer, "model": model, "feedback": feedback, "ts": int(time.time())}
+    logs.append(entry)
+    try:
+        with open(CHAT_LOG, "w", encoding="utf-8") as f:
+            json.dump(logs, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        dlog("log_chat error:", e)
+
+# ----------------------------
+# Translation helper
+# ----------------------------
+def translate_text(text, target_lang):
+    if not text or not text.strip():
+        return text
+    try:
+        return GoogleTranslator(source="auto", target=target_lang).translate(text)
+    except Exception as e:
+        dlog("translate error:", e)
+        return text
+
+# ----------------------------
+# Serve frontend
+# ----------------------------
+@app.route("/")
+def serve_frontend():
+    return send_from_directory(app.static_folder, "index.html")
+
+# ----------------------------
+# Chat endpoint — uses active version context if available
+# ----------------------------
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    data = request.get_json(force=True)
+    message = data.get("message", "").strip()
+    lang = data.get("lang", "auto")
+    model = data.get("model", MODEL_NAME)
+
+    if not message:
+        return jsonify({"reply": "⚠️ Please enter a message."}), 400
+
+    # Load active version's context for the requested model (if any)
+    versions = load_versions()
+    active = None
+    for v in versions:
+        # match model key by prefix (e.g., "gemma2" in "gemma2:2b") or exact
+        if (v.get("model") and v.get("model") in model) or (v.get("model") == model):
+            if v.get("active"):
+                active = v
+                break
+
+    context = ""
+    if active:
+        ctx_path = os.path.join(PDF_STORE, active["model"], active["version"], "context.txt")
+        if os.path.exists(ctx_path):
+            try:
+                with open(ctx_path, "r", encoding="utf-8") as f:
+                    context = f.read()[:4000]
+            except Exception as e:
+                dlog("read context error:", e)
+
+    # translate if telugu requested
+    query = message
+    if lang == "te":
+        query = translate_text(message, "en")
+
+    prompt = f"Use this context if relevant:\n{context}\n\nUser question:\n{query}"
+    reply = ollama_generate(prompt, model=model)
+
+    if lang == "te":
+        # translate back to Telugu if needed (optional, here assume Ollama responded in english)
+        try:
+            reply = translate_text(reply, "te")
         except Exception:
             pass
 
-        return jsonify({"text": text, "reply": reply, "ts": entry["ts"], "id": entry["id"]})
-    except Exception as e:
-        return jsonify({"error": "Server error", "msg": str(e)}), 500
+    log_chat("user", message, reply, model=model)
+    return jsonify({"reply": reply, "ts": int(time.time())})
 
-@app.get("/api/admin/chat/logs")
-@admin_required
-def admin_get_logs():
+# ----------------------------
+# Transcription endpoint
+# ----------------------------
+@app.route("/api/transcribe", methods=["POST"])
+def api_transcribe():
+    global whisper_model
+    if whisper_model is None:
+        return jsonify({"error": "⚠️ Whisper model is loading. Try again shortly."}), 503
+
+    if "file" not in request.files:
+        return jsonify({"error": "❌ No audio file uploaded."}), 400
+
+    file = request.files["file"]
+    lang = request.form.get("lang", "auto")
+    temp_path = os.path.join(DATA_DIR, f"temp_{int(time.time())}.wav")
+    file.save(temp_path)
+
     try:
-        data = load_logs()
-        logs = data.get("logs", [])[:]
-        model_q = request.args.get("model")
-        fb_q = request.args.get("feedback")
-        user_q = request.args.get("user_id")
-
-        if model_q:
-            logs = [l for l in logs if (l.get("model") or "").lower() == model_q.lower()]
-        if fb_q:
-            if fb_q == "none":
-                logs = [l for l in logs if not l.get("feedback")]
-            else:
-                logs = [l for l in logs if l.get("feedback") == fb_q]
-        if user_q:
-            logs = [l for l in logs if l.get("user_id") == user_q]
-
-        logs = sorted(logs, key=lambda x: x.get("ts", 0), reverse=True)
-        limit = int(request.args.get("limit") or 1000)
-        skip = int(request.args.get("skip") or 0)
-        return jsonify({"logs": logs[skip: skip + limit]})
+        result = whisper_model.transcribe(temp_path, language="te" if lang == "te" else None)
+        text = result.get("text", "").strip()
+        if not text:
+            return jsonify({"text": "", "reply": "⚠️ Couldn't understand the audio clearly."})
+        query = text if lang != "te" else translate_text(text, "en")
+        # Get context from active version for default model
+        versions = load_versions()
+        active = next((v for v in versions if v.get("model") == "gemma2" and v.get("active")), None)
+        context = ""
+        if active:
+            ctx_path = os.path.join(PDF_STORE, active["model"], active["version"], "context.txt")
+            if os.path.exists(ctx_path):
+                with open(ctx_path, "r", encoding="utf-8") as f:
+                    context = f.read()[:4000]
+        prompt = f"Use this context if relevant:\n{context}\n\nUser question:\n{query}"
+        reply = ollama_generate(prompt, model=MODEL_NAME)
+        log_chat("voice", text, reply, model=MODEL_NAME)
+        return jsonify({"text": text, "reply": reply})
     except Exception as e:
-        return jsonify({"error": "Server error", "msg": str(e)}), 500
+        dlog("transcribe error:", e)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        try:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+        except:
+            pass
 
-@app.get("/api/admin/chat/logs/<int:ts>")
-@admin_required
-def admin_get_single(ts: int):
-    try:
-        logs = load_logs().get("logs", [])
-        for l in logs:
-            if int(l.get("ts", 0)) == int(ts):
-                return jsonify(l)
-        return jsonify({"error": "Not found"}), 404
-    except Exception as e:
-        return jsonify({"error": "Server error", "msg": str(e)}), 500
+# ----------------------------
+# Admin: login / check / logout
+# ----------------------------
+@app.route("/api/admin/login", methods=["POST"])
+def admin_login():
+    data = request.get_json(silent=True) or {}
+    username = data.get("username")
+    password = data.get("password")
+    ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "msme@123")
+    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        session["logged_in"] = True
+        dlog("Admin logged in")
+        return jsonify({"success": True, "message": "Login successful"})
+    return jsonify({"success": False, "message": "Invalid credentials"}), 401
 
-@app.post("/api/chat/feedback")
-@admin_required
-def admin_feedback():
-    try:
-        d = request.json or {}
-        ts = d.get("ts")
-        fb = d.get("feedback")
-        if ts is None or fb is None:
-            return jsonify({"error": "Missing ts or feedback"}), 400
-        data = load_logs()
-        modified = False
-        for entry in data.get("logs", []):
-            if int(entry.get("ts", 0)) == int(ts):
-                entry["feedback"] = None if fb == "none" else fb
-                modified = True
-                break
-        if modified:
-            save_logs(data)
-            return jsonify({"status": "ok"})
-        else:
-            return jsonify({"error": "Not found"}), 404
-    except Exception as e:
-        return jsonify({"error": "Server error", "msg": str(e)}), 500
+@app.route("/api/admin/check", methods=["GET"])
+def admin_check():
+    return jsonify({"logged_in": bool(session.get("logged_in", False))})
 
-@app.get("/api/admin/chat/export.csv")
-@admin_required
-def admin_export_csv():
-    try:
-        data = load_logs()
-        logs = sorted(data.get("logs", []), key=lambda x: x.get("ts", 0), reverse=True)
-        # build CSV in memory
-        si = StringIO()
-        import csv
-        writer = csv.writer(si)
-        writer.writerow(["id", "ts", "user_id", "question", "reply", "model", "feature", "version", "feedback"])
-        for l in logs:
-            writer.writerow([
-                l.get("id"),
-                l.get("ts"),
-                l.get("user_id"),
-                (l.get("question") or "").replace("\n", " "),
-                (l.get("reply") or "").replace("\n", " "),
-                l.get("model"),
-                l.get("feature"),
-                l.get("version"),
-                l.get("feedback")
-            ])
-        si.seek(0)
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv")
-        tmp.write(si.getvalue().encode("utf-8"))
-        tmp.close()
-        return send_file(tmp.name, as_attachment=True, download_name="chatlogs.csv", mimetype="text/csv")
-    except Exception as e:
-        return jsonify({"error": "Server error", "msg": str(e)}), 500
+@app.route("/api/admin/logout", methods=["POST"])
+def admin_logout():
+    session.clear()
+    dlog("Admin logged out")
+    return jsonify({"success": True, "message": "Logged out"})
 
-@app.get("/healthz")
-def healthz():
-    return jsonify({"status": "ok", "time": now_ts()})
-
-
-
-# ------------------- MODEL TRAINING STORAGE -------------------
-TRAIN_ROOT = "trained_models"
-os.makedirs(TRAIN_ROOT, exist_ok=True)
-
-def model_path(model):
-    p = os.path.join(TRAIN_ROOT, model)
-    os.makedirs(p, exist_ok=True)
-    os.makedirs(os.path.join(p, "versions"), exist_ok=True)
-    return p
-
-def save_meta(model, version, meta):
-    p = os.path.join(model_path(model), "versions", version)
-    os.makedirs(p, exist_ok=True)
-    with open(os.path.join(p, "meta.json"), "w", encoding="utf-8") as f:
-        json.dump(meta, f, indent=2)
-
-def load_meta(model, version):
-    try:
-        p = os.path.join(model_path(model), "versions", version, "meta.json")
-    except:
-        return None
-    if not os.path.exists(p):
-        return None
-    return json.load(open(p, "r", encoding="utf-8"))
-
-def save_active(model, version):
-    with open(os.path.join(model_path(model), "active.json"), "w") as f:
-        json.dump({"active": version}, f)
-
-def get_active(model):
-    p = os.path.join(model_path(model), "active.json")
-    if not os.path.exists(p): 
-        return None
-    return json.load(open(p)).get("active")
-
-
-# ------------------- /api/admin/train -------------------
-@app.post("/api/admin/train")
-@admin_required
+# ----------------------------
+# Admin: Train (upload PDFs, create version)
+# POST /api/admin/train
+# form fields: model_key, version, description (optional), files[]
+# ----------------------------
+@app.route("/api/admin/train", methods=["POST"])
 def admin_train():
+    if not session.get("logged_in"):
+        return jsonify({"message": "Unauthorized"}), 401
+
+    model_key = request.form.get("model_key")
+    version = request.form.get("version")
+    description = request.form.get("description", "")
+    if not model_key or not version:
+        return jsonify({"message": "Missing model or version"}), 400
+
+    # Save PDFs under data/pdfs/<model>/<version>/
+    model_version_dir = os.path.join(PDF_STORE, model_key, version)
+    os.makedirs(model_version_dir, exist_ok=True)
+
+    files = request.files.getlist("files")
+    if not files:
+        return jsonify({"message": "No PDF files uploaded."}), 400
+
+    saved_files = []
+    combined_text = ""
+    for f in files:
+        filename = secure_filename(f.filename)
+        save_path = os.path.join(model_version_dir, filename)
+        f.save(save_path)
+        saved_files.append(filename)
+        # extract text
+        try:
+            text = extract_pdf_text(save_path)
+            combined_text += text + "\n\n"
+        except Exception as e:
+            dlog("pdf extract error:", e)
+
+    # Save context.txt for RAG usage
+    ctx_path = os.path.join(model_version_dir, "context.txt")
     try:
-        version = request.form.get("version")
-        description = request.form.get("description", "")
-        model_key = request.form.get("model_key")
-        train_rag = request.form.get("train_rag") == "true"
-        train_lora = request.form.get("train_lora") == "true"
-
-        if not version or not model_key:
-            return jsonify({"error": "Missing version or model"}), 400
-
-        files = request.files.getlist("files")
-        if not files:
-            return jsonify({"error": "No files uploaded"}), 400
-
-        base = os.path.join(model_path(model_key), "versions", version)
-        os.makedirs(base, exist_ok=True)
-
-        saved_files = []
-        for f in files:
-            fname = secure_filename(f.filename)
-            f.save(os.path.join(base, fname))
-            saved_files.append(fname)
-
-        meta = {
-            "model": model_key,
-            "version": version,
-            "description": description,
-            "files": saved_files,
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "rag": train_rag,
-            "lora": train_lora,
-            "active": False
-        }
-
-        save_meta(model_key, version, meta)
-
-        return jsonify({"success": True, "message": "Model trained successfully!", "meta": meta})
-    
+        with open(ctx_path, "w", encoding="utf-8") as cf:
+            cf.write(combined_text)
     except Exception as e:
-        return jsonify({"error": "Training failed", "msg": str(e)}), 500
+        dlog("write context error:", e)
 
+    # Update versions.json
+    versions = load_versions()
+    # deactivate existing actives for this model
+    for v in versions:
+        if v.get("model") == model_key:
+            v["active"] = False
 
-# ------------------- /api/admin/train/info -------------------
-@app.get("/api/admin/train/info")
-@admin_required
-def train_info():
-    model = request.args.get("model")
-    active = get_active(model)
-    if not active:
+    new_entry = {
+        "model": model_key,
+        "version": version,
+        "description": description,
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "files": saved_files,
+        "active": True
+    }
+    versions.append(new_entry)
+    save_versions(versions)
+
+    dlog("Trained new version:", new_entry)
+    return jsonify({"success": True, "message": f"Trained {model_key}:{version}."})
+
+# ----------------------------
+# Admin: get active version info for a model
+# GET /api/admin/train/info?model=<model_key>
+# ----------------------------
+@app.route("/api/admin/train/info", methods=["GET"])
+def admin_train_info():
+    model_key = request.args.get("model")
+    versions = load_versions()
+    info = next((v for v in versions if v.get("model") == model_key and v.get("active")), None)
+    if not info:
         return jsonify({"trained": False})
+    return jsonify(info)
 
-    meta = load_meta(model, active)
-    if meta:
-        meta["active"] = True
-        return jsonify(meta)
+# ----------------------------
+# Admin: version history
+# GET /api/admin/train/history
+# ----------------------------
+@app.route("/api/admin/train/history", methods=["GET"])
+def admin_train_history():
+    versions = load_versions()
+    # return newest first
+    versions_sorted = sorted(versions, key=lambda x: x.get("timestamp", ""), reverse=True)
+    return jsonify({"versions": versions_sorted})
 
-    return jsonify({"trained": False})
+# ----------------------------
+# Admin: activate version
+# POST /api/admin/activate  {model, version}
+# ----------------------------
+@app.route("/api/admin/activate", methods=["POST"])
+def admin_activate():
+    if not session.get("logged_in"):
+        return jsonify({"message": "Unauthorized"}), 401
 
-
-# ------------------- /api/admin/train/history -------------------
-@app.get("/api/admin/train/history")
-@admin_required
-def train_history():
-    versions = []
-
-    for model in os.listdir(TRAIN_ROOT):
-        vdir = os.path.join(TRAIN_ROOT, model, "versions")
-        if not os.path.isdir(vdir): 
-            continue
-
-        active = get_active(model)
-
-        for v in os.listdir(vdir):
-            meta = load_meta(model, v)
-            if meta:
-                meta["model"] = model
-                meta["active"] = (v == active)
-                versions.append(meta)
-
-    versions = sorted(versions, key=lambda x: x["timestamp"], reverse=True)
-
-    return jsonify({"versions": versions})
-
-
-# ------------------- /api/admin/activate -------------------
-@app.post("/api/admin/activate")
-@admin_required
-def activate_version():
-    data = request.json
-    model = data.get("model")
+    data = request.get_json(silent=True) or {}
+    model_key = data.get("model")
     version = data.get("version")
+    if not model_key or not version:
+        return jsonify({"success": False, "message": "model/version missing"}), 400
 
-    if not model or not version:
-        return jsonify({"error": "Missing params"}), 400
+    versions = load_versions()
+    found = False
+    for v in versions:
+        if v.get("model") == model_key:
+            v["active"] = (v.get("version") == version)
+        if v.get("model") == model_key and v.get("version") == version:
+            found = True
 
-    save_active(model, version)
+    if not found:
+        return jsonify({"success": False, "message": "Version not found"}), 404
+
+    save_versions(versions)
+    dlog("Activated version", model_key, version)
+    return jsonify({"success": True})
+
+# ----------------------------
+# Admin: delete a version (history or active)
+# POST /api/admin/delete-version  {model, version}
+# ----------------------------
+@app.route("/api/admin/delete-version", methods=["POST"])
+def admin_delete_version():
+    if not session.get("logged_in"):
+        return jsonify({"message": "Unauthorized"}), 401
+
+    data = request.get_json(silent=True) or {}
+    model_key = data.get("model")
+    version = data.get("version")
+    if not model_key or not version:
+        return jsonify({"success": False, "message": "model/version missing"}), 400
+
+    versions = load_versions()
+    entry = next((v for v in versions if v.get("model") == model_key and v.get("version") == version), None)
+    if not entry:
+        return jsonify({"success": False, "message": "Version not found"}), 404
+
+    # remove context file
+    ctx_path = os.path.join(PDF_STORE, model_key, version, "context.txt")
+    try:
+        if os.path.exists(ctx_path):
+            os.remove(ctx_path)
+    except Exception as e:
+        dlog("remove context error:", e)
+
+    # optionally delete PDFs
+    if DELETE_PDFS_ON_DELETE:
+        try:
+            folder = os.path.join(PDF_STORE, model_key, version)
+            if os.path.exists(folder):
+                # remove all files and the folder
+                for fn in os.listdir(folder):
+                    p = os.path.join(folder, fn)
+                    try:
+                        os.remove(p)
+                    except:
+                        pass
+                try:
+                    os.rmdir(folder)
+                except:
+                    pass
+        except Exception as e:
+            dlog("delete pdfs error:", e)
+
+    # remove entry from versions list
+    versions = [v for v in versions if not (v.get("model") == model_key and v.get("version") == version)]
+    save_versions(versions)
+    dlog("Deleted version", model_key, version)
+    return jsonify({"success": True})
+
+# ----------------------------
+# Admin: delete active (convenience)
+# POST /api/admin/delete-active {model, version}
+# (same behavior as delete-version; requires version param to avoid `undefined`)
+# ----------------------------
+@app.route("/api/admin/delete-active", methods=["POST"])
+def admin_delete_active():
+    if not session.get("logged_in"):
+        return jsonify({"message": "Unauthorized"}), 401
+
+    data = request.get_json(silent=True) or {}
+    model_key = data.get("model")
+    version = data.get("version")
+    if not model_key or not version:
+        return jsonify({"success": False, "message": "model/version missing"}), 400
+
+    # delegate to delete-version handler logic by duplicating behavior
+    versions = load_versions()
+    entry = next((v for v in versions if v.get("model") == model_key and v.get("version") == version), None)
+    if not entry:
+        return jsonify({"success": False, "message": "Version not found"}), 404
+
+    ctx_path = os.path.join(PDF_STORE, model_key, version, "context.txt")
+    try:
+        if os.path.exists(ctx_path):
+            os.remove(ctx_path)
+    except Exception as e:
+        dlog("remove context error:", e)
+
+    if DELETE_PDFS_ON_DELETE:
+        try:
+            folder = os.path.join(PDF_STORE, model_key, version)
+            if os.path.exists(folder):
+                for fn in os.listdir(folder):
+                    p = os.path.join(folder, fn)
+                    try:
+                        os.remove(p)
+                    except:
+                        pass
+                try:
+                    os.rmdir(folder)
+                except:
+                    pass
+        except Exception as e:
+            dlog("delete pdfs error:", e)
+
+    versions = [v for v in versions if not (v.get("model") == model_key and v.get("version") == version)]
+    save_versions(versions)
+    dlog("Deleted active version", model_key, version)
+    return jsonify({"success": True})
+
+# ----------------------------
+# Admin: get all chat logs (protected)
+# GET /api/admin/chat/logs
+# ----------------------------
+@app.route("/api/admin/chat/logs", methods=["GET"])
+def admin_get_logs():
+    if not session.get("logged_in"):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if not os.path.exists(CHAT_LOG):
+        return jsonify({"logs": []})
+    try:
+        with open(CHAT_LOG, "r", encoding="utf-8") as f:
+            logs = json.load(f)
+    except Exception:
+        logs = []
+    return jsonify({"logs": logs})
+
+# ----------------------------
+# Admin: get log details
+# GET /api/admin/chat/logs/<ts>
+# ----------------------------
+@app.route("/api/admin/chat/logs/<ts>", methods=["GET"])
+def admin_get_log_details(ts):
+    if not session.get("logged_in"):
+        return jsonify({"error": "Unauthorized"}), 401
+    if not os.path.exists(CHAT_LOG):
+        return jsonify({"error": "No logs found"}), 404
+    try:
+        with open(CHAT_LOG, "r", encoding="utf-8") as f:
+            logs = json.load(f)
+    except Exception:
+        logs = []
+    for entry in logs:
+        if str(entry.get("ts")) == str(ts):
+            return jsonify({"log": entry})
+    return jsonify({"error": "Log not found"}), 404
+
+# ----------------------------
+# Chat feedback endpoint
+# POST /api/chat/feedback {ts, feedback}
+# ----------------------------
+# ----------------------------------------
+# Chat Feedback API
+# POST /api/chat/feedback
+# Body: { "ts": 1234567890, "feedback": "positive" | "negative" | "none" }
+# ----------------------------------------
+@app.route("/api/chat/feedback", methods=["POST"])
+def chat_feedback():
+    data = request.get_json(silent=True) or {}
+
+    ts = data.get("ts")
+    feedback = data.get("feedback")  # "positive", "negative", "none"
+
+    if ts is None:
+        return jsonify({"error": "ts missing"}), 400
+
+    # Ensure log file exists
+    if not os.path.exists(CHAT_LOG):
+        # Create empty log file automatically
+        with open(CHAT_LOG, "w", encoding="utf-8") as f:
+            json.dump([], f, indent=2, ensure_ascii=False)
+
+    # Load logs
+    try:
+        with open(CHAT_LOG, "r", encoding="utf-8") as f:
+            logs = json.load(f)
+    except Exception as e:
+        print("❌ Failed to read chat logs:", e)
+        return jsonify({"error": "Failed to read chat logs"}), 500
+
+    updated = False
+
+    # Update the right log entry
+    for entry in logs:
+        if str(entry.get("ts")) == str(ts):
+            # Convert "none" → remove feedback
+            entry["feedback"] = None if feedback == "none" else feedback
+            updated = True
+            break
+
+    if not updated:
+        return jsonify({"error": "Timestamp not found"}), 404
+
+    # Save updates back to file
+    try:
+        with open(CHAT_LOG, "w", encoding="utf-8") as f:
+            json.dump(logs, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print("❌ Failed to save feedback:", e)
+        return jsonify({"error": "Failed to save"}), 500
+
     return jsonify({"success": True})
 
 
-# ------------------- /api/admin/delete-version -------------------
-@app.post("/api/admin/delete-version")
-@admin_required
-def delete_version():
-    data = request.json
-    model = data.get("model")
-    version = data.get("version")
+# ------------------------------------------------
+# Ensure JSON storage files exist
+# ------------------------------------------------
 
-    p = os.path.join(model_path(model), "versions", version)
+# versions.json (model training versions)
+if not os.path.exists(VERSIONS_PATH):
+    with open(VERSIONS_PATH, "w", encoding="utf-8") as f:
+        json.dump([], f, indent=2, ensure_ascii=False)
 
-    if os.path.exists(p):
-        import shutil
-        shutil.rmtree(p)
+# chat_logs.json (chat history)
+if not os.path.exists(CHAT_LOG):
+    with open(CHAT_LOG, "w", encoding="utf-8") as f:
+        json.dump([], f, indent=2, ensure_ascii=False)
 
-    # If deleted version was active → remove active flag
-    if get_active(model) == version:
-        save_active(model, "")
+# Ensure PDF directory structure exists
+if not os.path.exists(PDF_STORE):
+    os.makedirs(PDF_STORE, exist_ok=True)
 
-    return jsonify({"success": True})
 
-# --------------- START ---------------
+# ----------------------------
+# Health / ping
+# ----------------------------
+@app.route("/ping")
+def ping():
+    return "pong"
+
+# ----------------------------
+# Run
+# ----------------------------
 if __name__ == "__main__":
-    print("Starting backend (Ollama chat API) ->", OLLAMA_CHAT_API)
-    app.run(host="0.0.0.0", port=PORT, debug=FLASK_DEBUG)
+    print(f"🚀 Backend starting — Ollama model: {MODEL_NAME}")
+    app.run(host="0.0.0.0", port=5000, debug=True)

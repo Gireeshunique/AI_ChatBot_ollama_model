@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "./ChatApp.css";
+//import "./AdminLogin.css";
+
 
 function AdminLogin() {
   const navigate = useNavigate();
@@ -9,38 +11,25 @@ function AdminLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
+  // ---------------- LOGIN HANDLER ----------------
   const handleLogin = async () => {
-    setError("");
     if (!username || !password) {
       setError("⚠️ Please enter both username and password.");
       return;
     }
-
     try {
-      const res = await axios.post(
-        "http://localhost:5000/api/admin/login",
-        { username: username.trim(), password: password.trim() },
-        { headers: { "Content-Type": "application/json" } }
-      );
-
-      if (res.data && res.data.token) {
-        localStorage.setItem("token", res.data.token);
+      const res = await axios.post("/api/admin/login", { username, password });
+      if (res.data.success) {
+        alert("✅ Login successful!");
         navigate("/dashboard");
-      } else if (res.data && res.data.error) {
-        setError(`❌ ${res.data.error}`);
-      } else {
-        setError("❌ Invalid credentials");
-      }
+      } else setError("❌ Invalid credentials");
     } catch (err) {
-      const msg = err.response && err.response.data && err.response.data.error
-        ? err.response.data.error
-        : "Server not responding";
-      setError(`❌ ${msg}`);
-      console.error("Login error:", err);
+      console.error(err);
+      setError("⚠️ Server not responding. Please try again.");
     }
-    
   };
 
+  // ---------------- RETURN JSX ----------------
   return (
     <div className="login-container">
       <div className="login-card">
@@ -70,11 +59,18 @@ function AdminLogin() {
 
         {error && <p className="error-text">{error}</p>}
 
-        <button className="back-btn" onClick={() => navigate("/")}>
+        {/* 🔙 Back to Chat Button */}
+        <button
+          className="back-btn"
+          onClick={() => navigate("/")}
+          style={{ marginTop: "10px" }}
+        >
           🔙 Back to Chat
         </button>
 
-        <p className="login-footer">💼 MSME ONE Assistant © {new Date().getFullYear()}</p>
+        <p className="login-footer">
+          💼 MSME ONE Assistant © {new Date().getFullYear()}
+        </p>
       </div>
     </div>
   );

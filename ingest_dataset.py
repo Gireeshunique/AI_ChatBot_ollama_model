@@ -20,7 +20,7 @@ nltk.download("punkt", quiet=True)
 
 # ----------------- Config -----------------
 
-ZIP_PATH = os.environ.get("ZIP_PATH_OVERRIDE") or r"D:\project1\backend\AI-Powered Chatbot-20251015T144511Z-1-001.zip"
+ZIP_PATH = os.environ.get("ZIP_PATH_OVERRIDE") or r"D:\project1\backend\Guidelines.zip"
  # change to your zip path
 EXTRACTION_DIR = "data/extracted"
 CORPUS_PATH = "data/pdf_corpus.txt"

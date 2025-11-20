@@ -1,4 +1,3 @@
-// AdminChatLogs.jsx
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import axios from "axios";
 import "./ChatLogs.css";
@@ -12,14 +11,17 @@ export default function AdminChatLogs() {
   const [fbFilter, setFbFilter] = useState("all");
   const [loading, setLoading] = useState(false);
 
-  const authHeader = useMemo(() => ({
-    Authorization: "Bearer " + localStorage.getItem("token")
-  }), []);
+  // No bearer token (backend uses session cookie)
+  const authHeader = useMemo(() => ({}), []);
 
   const loadLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get("/api/admin/chat/logs", { headers: authHeader });
+      const res = await axios.get("/api/admin/chat/logs", {
+        withCredentials: true,
+        headers: authHeader
+      });
+
       setLogs(res.data.logs || []);
       setFiltered(res.data.logs || []);
     } catch (e) {
@@ -33,19 +35,36 @@ export default function AdminChatLogs() {
   useEffect(() => { loadLogs(); }, [loadLogs]);
 
   // Filtering
-  useEffect(() => {
-    let d = [...logs];
-    if (modeFilter !== "all") d = d.filter(l => (l.model || "").toLowerCase() === modeFilter.toLowerCase());
-    if (fbFilter !== "all") {
-      if (fbFilter === "none") d = d.filter(l => !l.feedback);
-      else d = d.filter(l => l.feedback === fbFilter);
-    }
-    setFiltered(d);
-  }, [modeFilter, fbFilter, logs]);
+ useEffect(() => {
+  let d = [...logs];
+
+  // -------- MODEL FILTER --------
+  if (modeFilter !== "all") {
+    d = d.filter(l => {
+      const m = (l.model || "").toLowerCase();
+      const sel = modeFilter.toLowerCase();
+
+      // match by prefix or substring
+      return m.includes(sel) || sel.includes(m);
+    });
+  }
+
+  // -------- FEEDBACK FILTER --------
+  if (fbFilter !== "all") {
+    if (fbFilter === "none") d = d.filter(l => !l.feedback);
+    else d = d.filter(l => l.feedback === fbFilter);
+  }
+
+  setFiltered(d);
+}, [modeFilter, fbFilter, logs]);
+
 
   const setFeedback = async (ts, fb) => {
     try {
-      await axios.post("/api/chat/feedback", { ts, feedback: fb }, { headers: authHeader });
+      await axios.post("/api/chat/feedback", 
+        { ts, feedback: fb }, 
+        { withCredentials: true }
+      );
       await loadLogs();
     } catch (e) {
       console.error("Feedback error", e);
@@ -66,7 +85,6 @@ export default function AdminChatLogs() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="stats-box">
         <div className="stat-card"><h2>{logs.length}</h2><p>Total Conversations</p></div>
         <div className="stat-card green"><h2>{logs.filter(l => l.feedback === "positive").length}</h2><p>Positive</p></div>
@@ -74,7 +92,6 @@ export default function AdminChatLogs() {
         <div className="stat-card gray"><h2>{logs.filter(l => !l.feedback).length}</h2><p>No Feedback</p></div>
       </div>
 
-      {/* Filters */}
       <div className="filters-row">
         <select value={fbFilter} onChange={e => setFbFilter(e.target.value)}>
           <option value="all">All Feedback</option>
@@ -84,12 +101,11 @@ export default function AdminChatLogs() {
         </select>
         <select value={modeFilter} onChange={e => setModeFilter(e.target.value)}>
           <option value="all">All Models</option>
-          <option value="ollama:gemma2">Gemma2:2B</option>
+          <option value="gemma2:2b">gemma2:2B</option>
           <option value="phi3.1:3b">Phi3.1:3B</option>
         </select>
       </div>
 
-      {/* Logs Table */}
       <table className="logs-table">
         <thead>
           <tr>

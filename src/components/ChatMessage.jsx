@@ -10,13 +10,20 @@ function ChatMessage({ sender, text, ts }) {
   const sendFeedback = async (type) => {
     setFeedback(type);
     setShowMsg(true);
+
     setDisplayMsg(type === "like" ? "Thanks! 👍" : "We'll improve 👎");
 
     try {
-      await axios.post("http://localhost:5000/api/chat/feedback", {
-        ts,
-        feedback: type === "like" ? "positive" : "negative"
-      });
+      await axios.post(
+        "http://localhost:5000/api/chat/feedback",
+        {
+          ts,
+          feedback: type === "like" ? "positive" : "negative"
+        },
+        {
+          withCredentials: true   // ✅ Correct place
+        }
+      );
     } catch (err) {
       console.error("Feedback error:", err);
       setDisplayMsg("Failed to send feedback.");
@@ -26,9 +33,15 @@ function ChatMessage({ sender, text, ts }) {
   };
 
   return (
-    <div className={`chat-message ${sender === "user" ? "user-row" : "bot-row"}`}>
+    <div
+      className={`chat-message ${
+        sender === "user" ? "user-row" : "bot-row"
+      }`}
+    >
       {sender === "bot" && (
-        <div className="chat-avatar"><span className="material-icons bot-icon">smart_toy</span></div>
+        <div className="chat-avatar">
+          <span className="material-icons bot-icon">smart_toy</span>
+        </div>
       )}
 
       <div className="chat-bubble">
@@ -36,15 +49,32 @@ function ChatMessage({ sender, text, ts }) {
 
         {sender === "bot" && (
           <div className="feedback-buttons">
-            <span className={`material-icons feedback-btn ${feedback === "like" ? "selected" : ""}`}
-                  onClick={() => sendFeedback("like")}>thumb_up</span>
-            <span className={`material-icons feedback-btn ${feedback === "dislike" ? "selected" : ""}`}
-                  onClick={() => sendFeedback("dislike")}>thumb_down</span>
+            <span
+              className={`material-icons feedback-btn ${
+                feedback === "like" ? "selected" : ""
+              }`}
+              onClick={() => sendFeedback("like")}
+            >
+              thumb_up
+            </span>
+
+            <span
+              className={`material-icons feedback-btn ${
+                feedback === "dislike" ? "selected" : ""
+              }`}
+              onClick={() => sendFeedback("dislike")}
+            >
+              thumb_down
+            </span>
           </div>
         )}
 
         {sender === "bot" && showMsg && (
-          <div className={`feedback-label ${feedback === "like" ? "good" : "bad"}`}>
+          <div
+            className={`feedback-label ${
+              feedback === "like" ? "good" : "bad"
+            }`}
+          >
             <span className="material-icons feedback-icon">
               {feedback === "like" ? "check_circle" : "error_outline"}
             </span>
@@ -54,7 +84,9 @@ function ChatMessage({ sender, text, ts }) {
       </div>
 
       {sender === "user" && (
-        <div className="chat-avatar"><span className="material-icons user-icon">person</span></div>
+        <div className="chat-avatar">
+          <span className="material-icons user-icon">person</span>
+        </div>
       )}
     </div>
   );
