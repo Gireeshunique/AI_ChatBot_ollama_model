@@ -5,6 +5,7 @@ A full‑stack AI assistant for MSMEs — React frontend + Flask backend — tha
 ![MSME Logo](https://github.com/Gireeshunique/AI_ChatBot_ollama_model/blob/c1226392c8d5f88d7adb98aa65b7f8bde0fe7e0e/Screenshot%202025-11-20%20234643.png)
 ![Project Diagram](https://github.com/Gireeshunique/AI_ChatBot_ollama_model/blob/cb3fc1f12920c7b2d4bc9032071b64be49746308/Screenshot%202026-01-13%20191647.png)
 ![project Diagram](https://github.com/Gireeshunique/AI_ChatBot_ollama_model/blob/ab97e7d51b11953acbdee94561f61980f3268f69/Screenshot%202026-01-13%20191654.png)
+![project Diagram](https://github.com/Gireeshunique/AI_ChatBot_ollama_model/blob/b4f51b00d99f59abbe606cdcbfaf0dbd5554681a/Screenshot%202026-01-13%20192353.png)
 
 ---
 
